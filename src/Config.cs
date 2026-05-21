@@ -8,8 +8,11 @@ namespace BonelabAdvancedHealth
         public const string ModName = "Bonelab Advanced Health";
         public const string ModVersion = "1.0.0";
         public const int LimbCount = 6;
+        public const int OrganCount = 6;
         public const int MaxBleedSources = 24;
         public const int MaxMedicalItems = 24;
+        public const int MaxBloodDecals = 96;
+        public const int MaxBloodParticles = 12;
 
         private static MelonPreferences_Category? _category;
         private static MelonPreferences_Entry<bool>? _enabled;
@@ -26,6 +29,8 @@ namespace BonelabAdvancedHealth
         private static MelonPreferences_Entry<float>? _deathBloodMl;
         private static MelonPreferences_Entry<float>? _medicalApplyDistance;
         private static MelonPreferences_Entry<float>? _medicalSpawnDistance;
+        private static MelonPreferences_Entry<float>? _bloodFxDensity;
+        private static MelonPreferences_Entry<bool>? _bloodFxEnabled;
 
         public static bool Enabled => _enabled?.Value ?? true;
         public static bool HudEnabled => _hudEnabled?.Value ?? true;
@@ -41,6 +46,8 @@ namespace BonelabAdvancedHealth
         public static float DeathBloodMl => Clamp(_deathBloodMl?.Value ?? 1800f, 800f, 4000f);
         public static float MedicalApplyDistance => Clamp(_medicalApplyDistance?.Value ?? 0.42f, 0.15f, 1.25f);
         public static float MedicalSpawnDistance => Clamp(_medicalSpawnDistance?.Value ?? 1.15f, 0.4f, 3.0f);
+        public static bool BloodFxEnabled => _bloodFxEnabled?.Value ?? true;
+        public static float BloodFxDensity => Clamp(_bloodFxDensity?.Value ?? 1.0f, 0.15f, 2.5f);
 
         public static readonly float[] LimbMaxHp =
         {
@@ -89,6 +96,8 @@ namespace BonelabAdvancedHealth
             _deathBloodMl = _category.CreateEntry("DeathBloodMl", 1800f, "Blood level that causes death");
             _medicalApplyDistance = _category.CreateEntry("MedicalApplyDistance", 0.42f, "Distance from head/body to consume medical items");
             _medicalSpawnDistance = _category.CreateEntry("MedicalSpawnDistance", 1.15f, "Distance in front of player for spawned medical items");
+            _bloodFxEnabled = _category.CreateEntry("BloodFxEnabled", true, "Enable pooled blood decals and drip particles");
+            _bloodFxDensity = _category.CreateEntry("BloodFxDensity", 1.0f, "Blood FX density multiplier");
             MelonPreferences.Save();
         }
 
@@ -121,6 +130,12 @@ namespace BonelabAdvancedHealth
                     return new Color(0.15f, 0.45f, 0.95f, 1f);
                 case MedicalItemType.Medkit:
                     return new Color(0.8f, 0.08f, 0.08f, 1f);
+                case MedicalItemType.Adrenaline:
+                    return new Color(0.95f, 0.72f, 0.08f, 1f);
+                case MedicalItemType.Splint:
+                    return new Color(0.56f, 0.38f, 0.18f, 1f);
+                case MedicalItemType.BloodPack:
+                    return new Color(0.55f, 0.0f, 0.04f, 1f);
                 default:
                     return Color.white;
             }
@@ -138,6 +153,12 @@ namespace BonelabAdvancedHealth
                     return "MORPHINE";
                 case MedicalItemType.Medkit:
                     return "MEDKIT";
+                case MedicalItemType.Adrenaline:
+                    return "ADRENALINE";
+                case MedicalItemType.Splint:
+                    return "SPLINT";
+                case MedicalItemType.BloodPack:
+                    return "BLOOD PACK";
                 default:
                     return "MED";
             }
@@ -202,7 +223,37 @@ namespace BonelabAdvancedHealth
         Bandage = 0,
         Tourniquet = 1,
         Morphine = 2,
-        Medkit = 3
+        Medkit = 3,
+        Adrenaline = 4,
+        Splint = 5,
+        BloodPack = 6
+    }
+
+    public enum WoundSeverity
+    {
+        None = 0,
+        SurfaceCut = 1,
+        DeepCut = 2,
+        ArterialCut = 3,
+        OrganRupture = 4
+    }
+
+    public enum OrganType
+    {
+        Brain = 0,
+        Heart = 1,
+        Lungs = 2,
+        Liver = 3,
+        Stomach = 4,
+        Muscles = 5
+    }
+
+    public enum OrganFailureState
+    {
+        Healthy = 0,
+        Damaged = 1,
+        Critical = 2,
+        Failed = 3
     }
 
     public enum HealthOwnerKind

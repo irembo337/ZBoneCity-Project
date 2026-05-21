@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Reflection;
 using HarmonyLib;
 using Il2CppSLZ.Bonelab;
 using Il2CppSLZ.Marrow;
@@ -18,12 +19,16 @@ namespace BonelabAdvancedHealth
     {
         private readonly Dictionary<int, NPCHealth> _npcHealth = new Dictionary<int, NPCHealth>(128);
         private readonly MedicalSystem _medical = new MedicalSystem();
+        private readonly PlayerControlLockSystem _controlLock = new PlayerControlLockSystem();
         private float _tickAccumulator;
         private HealthManager? _player;
 
         public static MainMod? Runtime { get; private set; }
         public HUDSystem Hud { get; } = new HUDSystem();
+        public ThoughtUI ThoughtUi { get; } = new ThoughtUI();
+        public BloodFXSystem BloodFx { get; } = new BloodFXSystem();
         public MelonLogger.Instance Logger => LoggerInstance;
+        public bool ArePlayerHandsLocked => _controlLock.IsLocked;
 
         public override void OnInitializeMelon()
         {
@@ -46,6 +51,7 @@ namespace BonelabAdvancedHealth
 
             float deltaTime = Time.deltaTime;
             _tickAccumulator += deltaTime;
+            _controlLock.Enforce(deltaTime);
             _medical.Update(deltaTime, _player);
 
             if (_tickAccumulator < Config.SystemTickInterval)
@@ -56,11 +62,14 @@ namespace BonelabAdvancedHealth
             HealthManager? player = GetOrCreatePlayerManager();
             player.UpdateSystems(elapsed);
             Hud.UpdateHud(player);
+            ThoughtUi.Update(elapsed, player);
+            BloodFx.Update(elapsed, player, _npcHealth.Values);
 
             foreach (NPCHealth npc in _npcHealth.Values)
             {
                 npc.SyncFromGameHealth();
                 npc.UpdateSystems(elapsed);
+                npc.ApplyNpcRuntimeEffects(elapsed);
             }
         }
 
@@ -68,6 +77,9 @@ namespace BonelabAdvancedHealth
         {
             _medical.ClearWorldItems();
             Hud.Destroy();
+            ThoughtUi.Destroy();
+            BloodFx.Reset();
+            _controlLock.Reset();
             if (_player != null)
                 _player.Consciousness.Destroy();
             Runtime = null;
@@ -145,6 +157,9 @@ namespace BonelabAdvancedHealth
         {
             try
             {
+                if (ragdoll)
+                    _controlLock.SetLocked(true);
+
                 PlayerRefs? refs = PlayerRefs.Instance;
                 PhysicsRig? physicsRig = refs != null && refs.HasRefs ? refs.PlayerPhysicsRig : null;
                 if (physicsRig == null)
@@ -153,9 +168,14 @@ namespace BonelabAdvancedHealth
                     return;
 
                 if (ragdoll)
+                {
                     physicsRig.RagdollRig();
+                }
                 else
+                {
                     physicsRig.UnRagdollRig();
+                    _controlLock.SetLocked(false);
+                }
             }
             catch (Exception ex)
             {
@@ -205,6 +225,41 @@ namespace BonelabAdvancedHealth
             _medical.SpawnDefaultItemsAtPlayer();
         }
 
+        public bool TryGetPlayerFeetPosition(out Vector3 feet)
+        {
+            feet = Vector3.zero;
+            try
+            {
+                PlayerRefs? refs = PlayerRefs.Instance;
+                PhysicsRig? physicsRig = refs != null && refs.HasRefs ? refs.PlayerPhysicsRig : null;
+                if (physicsRig != null && physicsRig.rbFeet != null)
+                {
+                    feet = physicsRig.rbFeet.position;
+                    return true;
+                }
+            }
+            catch (Exception)
+            {
+                return false;
+            }
+
+            Transform? head = GetHeadTransform();
+            if (head == null)
+                return false;
+            feet = head.position + Vector3.down * 1.25f;
+            return true;
+        }
+
+        public bool IsPlayerPhysHand(PhysHand physHand)
+        {
+            return _controlLock.IsPlayerPhysHand(physHand);
+        }
+
+        public void SuppressController(BaseController controller)
+        {
+            _controlLock.SuppressController(controller);
+        }
+
         private void ResetRuntimeForScene()
         {
             _tickAccumulator = 0f;
@@ -212,6 +267,9 @@ namespace BonelabAdvancedHealth
                 _player.Reset();
             _npcHealth.Clear();
             Hud.Destroy();
+            ThoughtUi.Destroy();
+            BloodFx.Reset();
+            _controlLock.Reset();
             _medical.OnSceneLoaded();
         }
 
@@ -220,10 +278,26 @@ namespace BonelabAdvancedHealth
             if (hand == null)
                 return;
 
-            strength = Config.Clamp(strength, 0.12f, 1f);
+            if (Runtime != null && Runtime.ArePlayerHandsLocked)
+                strength = 0f;
+            else
+                strength = Config.Clamp(strength, 0.12f, 1f);
             hand.SetGripStrength(strength);
             if (hand.physHand != null)
                 hand.physHand.gripMult = strength;
+        }
+
+        private static bool ShouldSuppressController(BaseController controller)
+        {
+            if (Runtime == null || !Runtime.ArePlayerHandsLocked)
+                return false;
+            Runtime.SuppressController(controller);
+            return true;
+        }
+
+        private static bool ShouldSuppressPlayerPhysHand(PhysHand physHand)
+        {
+            return Runtime != null && Runtime.ArePlayerHandsLocked && Runtime.IsPlayerPhysHand(physHand);
         }
 
         [HarmonyPatch(typeof(PlayerDamageReceiver), nameof(PlayerDamageReceiver.ReceiveAttack))]
@@ -237,6 +311,67 @@ namespace BonelabAdvancedHealth
                 HealthManager manager = Runtime.GetOrCreatePlayerManager();
                 DamageInfo info = DamageProcessor.FromPlayerAttack(attack, __instance.bodyPart);
                 manager.ApplyDamage(info);
+            }
+        }
+
+        [HarmonyPatch]
+        private static class SuppressHandPatch
+        {
+            private static IEnumerable<MethodBase> TargetMethods()
+            {
+                yield return AccessTools.Method(typeof(Hand), nameof(Hand.AttachObject));
+                yield return AccessTools.Method(typeof(Hand), nameof(Hand.UpdateHovering));
+                yield return AccessTools.Method(typeof(Hand), nameof(Hand.EarlyUpdateHeldObjectInputs));
+                yield return AccessTools.Method(typeof(Hand), nameof(Hand.OnPhysRigEarlyUpdate));
+                yield return AccessTools.Method(typeof(Hand), nameof(Hand.OnPhysRigUpdate));
+            }
+
+            private static bool Prefix(Hand __instance)
+            {
+                if (Runtime == null || !Runtime.ArePlayerHandsLocked)
+                    return true;
+
+                if (__instance != null && __instance.physHand != null && Runtime.IsPlayerPhysHand(__instance.physHand))
+                    return false;
+
+                return true;
+            }
+        }
+
+        [HarmonyPatch]
+        private static class SuppressGripPatch
+        {
+            private static IEnumerable<MethodBase> TargetMethods()
+            {
+                yield return AccessTools.Method(typeof(Grip), nameof(Grip.OnGrabConfirm));
+                yield return AccessTools.Method(typeof(Grip), nameof(Grip.Snatch));
+            }
+
+            private static bool Prefix(Hand hand)
+            {
+                if (Runtime == null || !Runtime.ArePlayerHandsLocked)
+                    return true;
+
+                return hand == null || hand.physHand == null || !Runtime.IsPlayerPhysHand(hand.physHand);
+            }
+        }
+
+        [HarmonyPatch]
+        private static class SuppressPhysHandPatch
+        {
+            private static IEnumerable<MethodBase> TargetMethods()
+            {
+                yield return AccessTools.Method(typeof(PhysHand), nameof(PhysHand.EarlyUpdateArm));
+                yield return AccessTools.Method(typeof(PhysHand), nameof(PhysHand.UpdateArmTargets));
+                yield return AccessTools.Method(typeof(PhysHand), nameof(PhysHand.UpdateArmDrives));
+                yield return AccessTools.Method(typeof(PhysHand), nameof(PhysHand.UpdateArmSupportDrives));
+                yield return AccessTools.Method(typeof(PhysHand), nameof(PhysHand.FixedUpdateArm));
+                yield return AccessTools.Method(typeof(PhysHand), nameof(PhysHand.ApplyForce));
+            }
+
+            private static bool Prefix(PhysHand __instance)
+            {
+                return !ShouldSuppressPlayerPhysHand(__instance);
             }
         }
 

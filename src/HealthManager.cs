@@ -7,7 +7,11 @@ namespace BonelabAdvancedHealth
         Trauma = 0,
         BloodLoss = 1,
         CriticalHeadDamage = 2,
-        CriticalTorsoDamage = 3
+        CriticalTorsoDamage = 3,
+        CardiacArrest = 4,
+        BrainFailure = 5,
+        OxygenLoss = 6,
+        OrganFailure = 7
     }
 
     public class HealthManager
@@ -18,6 +22,11 @@ namespace BonelabAdvancedHealth
         private int _lastAttackOrder;
         private BodyPart _lastPart;
         private float _morphineSeconds;
+        private float _morphineAwarenessPenalty;
+        private int _morphineDoseCount;
+        private float _adrenalineSeconds;
+        private float _adrenalineCrashSeconds;
+        private readonly float[] _tourniquetSeconds;
         private bool _deathRequested;
 
         public HealthOwnerKind Kind { get; }
@@ -26,8 +35,15 @@ namespace BonelabAdvancedHealth
         public BleedingSystem Bleeding { get; }
         public ConsciousnessSystem Consciousness { get; }
         public FractureSystem Fractures { get; }
+        public OrganSystem Organs { get; }
+        public LungDamageSystem Lungs { get; }
+        public BrainTraumaSystem Brain { get; }
+        public AudioTraumaSystem AudioTrauma { get; }
         public float Pain { get; private set; }
         public float PainNormalized => Config.Clamp(Pain / 100f, 0f, 1f);
+        public float AwarenessPenalty => Config.Clamp(_morphineAwarenessPenalty + Brain.DisorientationNormalized * 0.35f + Lungs.OxygenStress * 0.45f, 0f, 1f);
+        public float AdrenalineNormalized => _adrenalineSeconds > 0f ? Config.Clamp(_adrenalineSeconds / 45f, 0f, 1f) : 0f;
+        public float PulseModifier => Organs.HeartbeatStrength;
         public bool IsDead => Consciousness.State == ConsciousnessState.Dead || _deathRequested;
         public float TotalTraumaNormalized { get; private set; }
         public DeathCause LastDeathCause { get; private set; }
@@ -53,9 +69,14 @@ namespace BonelabAdvancedHealth
             }
 
             Random = new Random(Environment.TickCount ^ ownerId);
+            _tourniquetSeconds = new float[Config.LimbCount];
             Bleeding = new BleedingSystem(this);
             Consciousness = new ConsciousnessSystem(this);
             Fractures = new FractureSystem(this);
+            Organs = new OrganSystem(this);
+            Lungs = new LungDamageSystem(this);
+            Brain = new BrainTraumaSystem(this);
+            AudioTrauma = new AudioTraumaSystem(this);
             Bleeding.BloodChanged += OnBleedingChanged;
             LastDeathCause = DeathCause.Trauma;
         }
@@ -78,14 +99,25 @@ namespace BonelabAdvancedHealth
             _lastAttackOrder = 0;
             _lastPart = BodyPart.Torso;
             _morphineSeconds = 0f;
+            _morphineAwarenessPenalty = 0f;
+            _morphineDoseCount = 0;
+            _adrenalineSeconds = 0f;
+            _adrenalineCrashSeconds = 0f;
             Pain = 0f;
             TotalTraumaNormalized = 0f;
             LastDeathCause = DeathCause.Trauma;
 
             for (int i = 0; i < _limbs.Length; i++)
+            {
                 _limbs[i].Reset();
+                _tourniquetSeconds[i] = 0f;
+            }
 
             Bleeding.Reset();
+            Organs.Reset();
+            Lungs.Reset();
+            Brain.Reset();
+            AudioTrauma.Reset();
             Fractures.Reset();
             Consciousness.Reset();
             VitalsChanged?.Invoke(this);
@@ -109,6 +141,17 @@ namespace BonelabAdvancedHealth
             AddPain(info.Pain * limb.PainMultiplier);
             BleedSeverity severity = DamageProcessor.GetBleedSeverity(info, limb);
             Bleeding.AddBleed(info, limb, severity);
+            OrganDamageFeedback organFeedback = Organs.ApplyDamage(info);
+            if (organFeedback.BleedSeverity != BleedSeverity.None)
+                Bleeding.AddBleed(info, limb, organFeedback.BleedSeverity, organFeedback.BleedMultiplier, 1.5f, organFeedback.WoundSeverity);
+            if (organFeedback.Pain > 0f)
+                AddPain(organFeedback.Pain);
+            if (organFeedback.InstantCollapse)
+                Consciousness.SetUnconscious(organFeedback.CardiacArrest ? 12f : 5f);
+            Lungs.ApplyDamage(info, organFeedback);
+            Brain.ApplyDamage(info, organFeedback);
+            AudioTrauma.OnDamage(info, organFeedback);
+            MainMod.Runtime?.BloodFx.OnDamage(this, info, organFeedback);
             Consciousness.ApplyDamageImpulse(info);
             RecalculateTrauma();
             DamageProcessed?.Invoke(this, info);
@@ -126,15 +169,36 @@ namespace BonelabAdvancedHealth
             {
                 _morphineSeconds = Math.Max(0f, _morphineSeconds - deltaTime);
                 Pain = Math.Max(0f, Pain - deltaTime * 4.8f);
+                _morphineAwarenessPenalty = Config.Clamp(_morphineAwarenessPenalty + deltaTime * 0.006f * Math.Max(1, _morphineDoseCount), 0f, 0.45f);
             }
             else
             {
                 Pain = Math.Max(0f, Pain - deltaTime * 1.1f);
+                _morphineAwarenessPenalty = Math.Max(0f, _morphineAwarenessPenalty - deltaTime * 0.01f);
             }
 
+            if (_adrenalineSeconds > 0f)
+            {
+                _adrenalineSeconds = Math.Max(0f, _adrenalineSeconds - deltaTime);
+                Pain = Math.Max(0f, Pain - deltaTime * 2.6f);
+                if (_adrenalineSeconds <= 0f)
+                    _adrenalineCrashSeconds = 12f;
+            }
+            else if (_adrenalineCrashSeconds > 0f)
+            {
+                _adrenalineCrashSeconds = Math.Max(0f, _adrenalineCrashSeconds - deltaTime);
+                AddPain(deltaTime * 4.0f);
+            }
+
+            UpdateTourniquetDamage(deltaTime);
+
             Bleeding.Update(deltaTime);
+            Organs.Update(deltaTime);
+            Lungs.Update(deltaTime);
+            Brain.Update(deltaTime);
             Fractures.Update(deltaTime);
             Consciousness.Update(deltaTime);
+            AudioTrauma.Update(deltaTime);
             VitalsChanged?.Invoke(this);
         }
 
@@ -144,7 +208,8 @@ namespace BonelabAdvancedHealth
                 return;
 
             float morphineReduction = _morphineSeconds > 0f ? 0.45f : 1f;
-            Pain = Config.Clamp(Pain + amount * 0.32f * morphineReduction, 0f, 135f);
+            float adrenalineReduction = _adrenalineSeconds > 0f ? 0.35f : 1f;
+            Pain = Config.Clamp(Pain + amount * 0.32f * morphineReduction * adrenalineReduction * Organs.OrganPainModifier, 0f, 135f);
         }
 
         public void ReducePain(float amount, float morphineSeconds)
@@ -152,7 +217,17 @@ namespace BonelabAdvancedHealth
             if (amount > 0f)
                 Pain = Math.Max(0f, Pain - amount);
             if (morphineSeconds > 0f)
+            {
                 _morphineSeconds = Math.Max(_morphineSeconds, morphineSeconds);
+                _morphineDoseCount++;
+            }
+            VitalsChanged?.Invoke(this);
+        }
+
+        public void ApplyAdrenaline(float seconds)
+        {
+            _adrenalineSeconds = Math.Max(_adrenalineSeconds, seconds);
+            _adrenalineCrashSeconds = 0f;
             VitalsChanged?.Invoke(this);
         }
 
@@ -184,6 +259,7 @@ namespace BonelabAdvancedHealth
         public void ApplyTourniquet(BodyPart part)
         {
             Bleeding.ApplyTourniquet(part);
+            _tourniquetSeconds[(int)part] = Math.Max(_tourniquetSeconds[(int)part], 1f);
             VitalsChanged?.Invoke(this);
         }
 
@@ -243,6 +319,35 @@ namespace BonelabAdvancedHealth
         {
             if (Kind == HealthOwnerKind.Player)
                 MainMod.Runtime?.KillPlayer(cause);
+        }
+
+        private void UpdateTourniquetDamage(float deltaTime)
+        {
+            for (int i = 0; i < _tourniquetSeconds.Length; i++)
+            {
+                if (_tourniquetSeconds[i] <= 0f)
+                    continue;
+
+                _tourniquetSeconds[i] += deltaTime;
+                if (_tourniquetSeconds[i] > 60f)
+                {
+                    LimbHealth limb = _limbs[i];
+                    float damage = deltaTime * 0.55f * Config.Clamp((_tourniquetSeconds[i] - 60f) / 120f, 0.1f, 1f);
+                    limb.ApplyDamage(new DamageInfo(
+                        limb.Part,
+                        AdvancedDamageType.Blunt,
+                        damage,
+                        0f,
+                        0f,
+                        damage * 0.3f,
+                        0f,
+                        UnityEngine.Vector3.zero,
+                        UnityEngine.Vector3.zero,
+                        OwnerId,
+                        0,
+                        UnityEngine.Time.time), Random);
+                }
+            }
         }
 
         private bool IsDuplicateDamage(DamageInfo info)

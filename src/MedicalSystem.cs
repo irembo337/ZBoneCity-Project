@@ -122,6 +122,18 @@ namespace BonelabAdvancedHealth
                 case MedicalItemType.Medkit:
                     ApplyMedkit(target);
                     break;
+                case MedicalItemType.Adrenaline:
+                    target.ApplyAdrenaline(45f);
+                    target.ReducePain(12f, 0f);
+                    break;
+                case MedicalItemType.Splint:
+                    target.StabilizeFracture(part, 1.0f);
+                    target.ReducePain(6f, 0f);
+                    break;
+                case MedicalItemType.BloodPack:
+                    target.RestoreBlood(1100f);
+                    target.ReducePain(4f, 0f);
+                    break;
             }
 
             target.NotifyMedicalApplied(type);
@@ -130,6 +142,8 @@ namespace BonelabAdvancedHealth
         private static void ApplyMedkit(HealthManager target)
         {
             target.RestoreBlood(650f);
+            target.Organs.HealInternal(10f);
+            target.Lungs.Treat(0.35f);
             for (int i = 0; i < Config.LimbCount; i++)
             {
                 BodyPart part = (BodyPart)i;
@@ -161,10 +175,13 @@ namespace BonelabAdvancedHealth
 
             Vector3 right = Vector3.Cross(Vector3.up, forward);
             Vector3 center = head.position + forward * Config.MedicalSpawnDistance + Vector3.down * 0.55f;
-            SpawnItem(MedicalItemType.Bandage, center - right * 0.42f + Vector3.up * 0.08f);
-            SpawnItem(MedicalItemType.Tourniquet, center - right * 0.14f + Vector3.up * 0.08f);
-            SpawnItem(MedicalItemType.Morphine, center + right * 0.14f + Vector3.up * 0.08f);
-            SpawnItem(MedicalItemType.Medkit, center + right * 0.44f + Vector3.up * 0.08f);
+            SpawnItem(MedicalItemType.Bandage, center - right * 0.66f + Vector3.up * 0.08f);
+            SpawnItem(MedicalItemType.Tourniquet, center - right * 0.44f + Vector3.up * 0.08f);
+            SpawnItem(MedicalItemType.Morphine, center - right * 0.22f + Vector3.up * 0.08f);
+            SpawnItem(MedicalItemType.Adrenaline, center + Vector3.up * 0.08f);
+            SpawnItem(MedicalItemType.Splint, center + right * 0.24f + Vector3.up * 0.08f);
+            SpawnItem(MedicalItemType.BloodPack, center + right * 0.48f + Vector3.up * 0.08f);
+            SpawnItem(MedicalItemType.Medkit, center + right * 0.74f + Vector3.up * 0.08f);
             _spawnedForScene = true;
         }
 
@@ -173,7 +190,7 @@ namespace BonelabAdvancedHealth
             if (_items.Count >= Config.MaxMedicalItems)
                 return;
 
-            PrimitiveType primitive = type == MedicalItemType.Morphine || type == MedicalItemType.Tourniquet
+            PrimitiveType primitive = type == MedicalItemType.Morphine || type == MedicalItemType.Tourniquet || type == MedicalItemType.Adrenaline
                 ? PrimitiveType.Cylinder
                 : PrimitiveType.Cube;
             GameObject go = GameObject.CreatePrimitive(primitive);
@@ -209,6 +226,12 @@ namespace BonelabAdvancedHealth
                     return new Vector3(0.045f, 0.22f, 0.045f);
                 case MedicalItemType.Medkit:
                     return new Vector3(0.24f, 0.13f, 0.18f);
+                case MedicalItemType.Adrenaline:
+                    return new Vector3(0.045f, 0.21f, 0.045f);
+                case MedicalItemType.Splint:
+                    return new Vector3(0.07f, 0.34f, 0.045f);
+                case MedicalItemType.BloodPack:
+                    return new Vector3(0.17f, 0.12f, 0.05f);
                 default:
                     return Vector3.one * 0.1f;
             }

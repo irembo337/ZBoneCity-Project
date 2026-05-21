@@ -7,6 +7,7 @@ namespace BonelabAdvancedHealth
         public bool Active;
         public BodyPart BodyPart;
         public BleedSeverity Severity;
+        public WoundSeverity WoundSeverity;
         public float RateMlPerSecond;
         public float RemainingSeconds;
         public bool TourniquetControlled;
@@ -16,6 +17,7 @@ namespace BonelabAdvancedHealth
             Active = false;
             BodyPart = BodyPart.Torso;
             Severity = BleedSeverity.None;
+            WoundSeverity = WoundSeverity.None;
             RateMlPerSecond = 0f;
             RemainingSeconds = 0f;
             TourniquetControlled = false;
@@ -81,7 +83,7 @@ namespace BonelabAdvancedHealth
                 BleedSource source = _sources[i];
                 float rate = source.RateMlPerSecond;
                 if (source.TourniquetControlled)
-                    rate *= 0.12f;
+                    rate *= 0.015f;
 
                 source.RemainingSeconds -= elapsed;
                 if (source.RemainingSeconds <= 0f || rate <= 0f)
@@ -111,6 +113,12 @@ namespace BonelabAdvancedHealth
 
         public void AddBleed(DamageInfo info, LimbHealth limb, BleedSeverity severity)
         {
+            WoundSeverity wound = GetWoundSeverity(info, severity);
+            AddBleed(info, limb, severity, 1f, 1f, wound);
+        }
+
+        public void AddBleed(DamageInfo info, LimbHealth limb, BleedSeverity severity, float rateMultiplier, float durationMultiplier, WoundSeverity woundSeverity)
+        {
             if (severity == BleedSeverity.None)
                 return;
 
@@ -123,8 +131,9 @@ namespace BonelabAdvancedHealth
                 Active = true,
                 BodyPart = limb.Part,
                 Severity = severity,
-                RateMlPerSecond = baseRate * limb.BleedingMultiplier * damageFactor * typeFactor,
-                RemainingSeconds = GetBleedDuration(severity, info.DamageType),
+                WoundSeverity = woundSeverity,
+                RateMlPerSecond = baseRate * limb.BleedingMultiplier * damageFactor * typeFactor * Config.Clamp(rateMultiplier, 0.1f, 6.0f),
+                RemainingSeconds = GetBleedDuration(severity, info.DamageType) * Config.Clamp(durationMultiplier, 0.25f, 4.0f),
                 TourniquetControlled = false
             };
 
@@ -161,9 +170,15 @@ namespace BonelabAdvancedHealth
                     continue;
 
                 BleedSource source = _sources[i];
-                source.TourniquetControlled = true;
                 if (source.Severity < BleedSeverity.Arterial)
-                    source.RemainingSeconds = Math.Min(source.RemainingSeconds, 20f);
+                {
+                    _sources[i].Clear();
+                    changed = true;
+                    continue;
+                }
+
+                source.TourniquetControlled = true;
+                source.RemainingSeconds = Math.Min(source.RemainingSeconds, 420f);
                 _sources[i] = source;
                 changed = true;
             }
@@ -177,11 +192,13 @@ namespace BonelabAdvancedHealth
 
         public void RestoreBlood(float amountMl)
         {
-            if (amountMl <= 0f)
+            if (amountMl == 0f)
                 return;
 
             BloodVolumeMl = Config.Clamp(BloodVolumeMl + amountMl, 0f, Config.BloodVolumeMl);
             BloodChanged?.Invoke(this);
+            if (BloodVolumeMl <= Config.DeathBloodMl)
+                _manager.RequestDeath(DeathCause.BloodLoss);
         }
 
         public BodyPart GetWorstBleedingPart()
@@ -195,7 +212,7 @@ namespace BonelabAdvancedHealth
 
                 float rate = _sources[i].RateMlPerSecond;
                 if (_sources[i].TourniquetControlled)
-                    rate *= 0.12f;
+                    rate *= 0.015f;
                 if (rate > bestRate)
                 {
                     bestRate = rate;
@@ -266,7 +283,7 @@ namespace BonelabAdvancedHealth
 
                 float rate = _sources[i].RateMlPerSecond;
                 if (_sources[i].TourniquetControlled)
-                    rate *= 0.12f;
+                    rate *= 0.015f;
 
                 TotalBleedRateMlPerSecond += rate;
                 ActiveBleedCount++;
@@ -316,6 +333,17 @@ namespace BonelabAdvancedHealth
                 default:
                     return 1.0f;
             }
+        }
+
+        private static WoundSeverity GetWoundSeverity(DamageInfo info, BleedSeverity severity)
+        {
+            if (severity == BleedSeverity.Arterial)
+                return WoundSeverity.ArterialCut;
+            if (info.DamageType == AdvancedDamageType.Stab || info.DamageType == AdvancedDamageType.Bullet)
+                return severity >= BleedSeverity.Severe ? WoundSeverity.DeepCut : WoundSeverity.SurfaceCut;
+            if (info.DamageType == AdvancedDamageType.Explosion)
+                return WoundSeverity.DeepCut;
+            return WoundSeverity.None;
         }
     }
 }

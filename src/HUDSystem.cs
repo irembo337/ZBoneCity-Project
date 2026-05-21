@@ -62,8 +62,17 @@ namespace BonelabAdvancedHealth
             _builder.Append(pulse);
             _builder.Append(" bpm\nPAIN ");
             _builder.Append(Mathf.RoundToInt(manager.Pain));
+            _builder.Append("\nO2 ");
+            _builder.Append(Mathf.RoundToInt(manager.Lungs.OxygenNormalized * 100f));
+            _builder.Append("%");
             _builder.Append("\nSTATE ");
             _builder.Append(GetStateLabel(manager.Consciousness.State));
+            if (manager.Organs.CardiacArrestActive)
+                _builder.Append("\nCARDIAC ARREST");
+            else if (manager.Lungs.HasCollapsedLung)
+                _builder.Append("\nLUNG TRAUMA");
+            else if (manager.Brain.HasActiveConcussion)
+                _builder.Append("\nCONCUSSION");
             if (manager.Bleeding.HasActiveBleeding)
             {
                 _builder.Append("\nBLEED ");
@@ -85,6 +94,7 @@ namespace BonelabAdvancedHealth
             _limbText.text = _builder.ToString();
 
             SetConsciousnessEffects(_lastBlackout, _lastPain, _lastState);
+            SetPhysiologicalEffects(manager);
         }
 
         public void SetConsciousnessEffects(float blackout, float pain, ConsciousnessState state)
@@ -98,6 +108,19 @@ namespace BonelabAdvancedHealth
 
             float darkAlpha = state == ConsciousnessState.Dead ? 0.92f : Config.Clamp(_lastBlackout * 0.68f + _lastPain * 0.12f, 0f, 0.78f);
             float greyAlpha = state == ConsciousnessState.Dead ? 0.35f : Config.Clamp(_lastBlackout * 0.24f + _lastPain * 0.08f, 0f, 0.32f);
+            _vignette.color = new Color(0f, 0f, 0f, darkAlpha);
+            _desaturation.color = new Color(0.55f, 0.55f, 0.55f, greyAlpha);
+        }
+
+        public void SetPhysiologicalEffects(HealthManager manager)
+        {
+            if (_vignette == null || _desaturation == null)
+                return;
+
+            float pulse = 0.5f + 0.5f * Mathf.Sin(Time.time * Mathf.Lerp(1.4f, 4.6f, manager.PainNormalized + manager.Lungs.OxygenStress));
+            float tunnel = Config.Clamp(manager.Consciousness.BlackoutIntensity * 0.55f + manager.Lungs.OxygenStress * 0.45f + manager.Brain.DisorientationNormalized * 0.35f, 0f, 1f);
+            float darkAlpha = Config.Clamp(_vignette.color.a + tunnel * 0.25f + pulse * manager.PainNormalized * 0.06f, 0f, manager.Consciousness.State == ConsciousnessState.Dead ? 0.95f : 0.86f);
+            float greyAlpha = Config.Clamp(_desaturation.color.a + manager.Lungs.OxygenStress * 0.28f + manager.Brain.DisorientationNormalized * 0.18f, 0f, 0.55f);
             _vignette.color = new Color(0f, 0f, 0f, darkAlpha);
             _desaturation.color = new Color(0.55f, 0.55f, 0.55f, greyAlpha);
         }
@@ -231,6 +254,8 @@ namespace BonelabAdvancedHealth
 
             float bloodStress = 1f - manager.Bleeding.BloodNormalized;
             float pulse = 66f + manager.PainNormalized * 38f + bloodStress * 44f + manager.Bleeding.TotalBleedRateMlPerSecond * 0.18f;
+            pulse += manager.Lungs.BreathingPanic * 24f;
+            pulse *= Mathf.Lerp(0.36f, 1f, manager.PulseModifier);
             if (manager.Consciousness.State == ConsciousnessState.Unconscious)
                 pulse *= 0.72f;
             return Mathf.Clamp(Mathf.RoundToInt(pulse), 28, 178);

@@ -8,6 +8,7 @@ namespace BonelabAdvancedHealth
     {
         private readonly Enemy_Health? _enemyHealth;
         private bool _appliedUnconscious;
+        private float _limpReactionTimer;
 
         public Enemy_Health? EnemyHealth => _enemyHealth;
 
@@ -39,6 +40,38 @@ namespace BonelabAdvancedHealth
             else if (state == ConsciousnessState.Awake || state == ConsciousnessState.Blackout)
             {
                 _appliedUnconscious = false;
+            }
+        }
+
+        public Transform? GetEffectTransform()
+        {
+            if (_enemyHealth == null)
+                return null;
+
+            Rigidbody rb = _enemyHealth.rb_enemyBody;
+            if (rb != null)
+                return rb.transform;
+            return _enemyHealth.transform;
+        }
+
+        public Vector3 GetEffectPosition()
+        {
+            Transform? transform = GetEffectTransform();
+            return transform != null ? transform.position : Vector3.zero;
+        }
+
+        public void ApplyNpcRuntimeEffects(float deltaTime)
+        {
+            if (_enemyHealth == null || IsDead)
+                return;
+
+            _limpReactionTimer = Math.Max(0f, _limpReactionTimer - deltaTime);
+            bool legDisabled = GetLimb(BodyPart.LeftLeg).IsBroken || GetLimb(BodyPart.RightLeg).IsBroken;
+            bool choking = Lungs.HasCollapsedLung && Lungs.OxygenNormalized < 0.7f;
+            if ((legDisabled || choking) && _limpReactionTimer <= 0f)
+            {
+                _limpReactionTimer = choking ? 1.2f : 2.4f;
+                TryStaggerNpc();
             }
         }
 

@@ -89,6 +89,23 @@ namespace BonelabAdvancedHealth
             LeftArmUsage = UsageFromLimb(leftArm);
             RightArmUsage = UsageFromLimb(rightArm);
             SpineUsage = UsageFromLimb(torso);
+            if (_manager.AdrenalineNormalized > 0f)
+            {
+                float boost = _manager.AdrenalineNormalized * 0.28f;
+                LeftLegUsage = Config.Clamp(LeftLegUsage + boost, 0.12f, 1f);
+                RightLegUsage = Config.Clamp(RightLegUsage + boost, 0.12f, 1f);
+                LeftArmUsage = Config.Clamp(LeftArmUsage + boost, 0.12f, 1f);
+                RightArmUsage = Config.Clamp(RightArmUsage + boost, 0.12f, 1f);
+                SpineUsage = Config.Clamp(SpineUsage + boost * 0.5f, 0.12f, 1f);
+            }
+
+            if (_manager.Brain.HasActiveConcussion)
+            {
+                float concussionPenalty = _manager.Brain.DisorientationNormalized * 0.18f;
+                LeftLegUsage = Config.Clamp(LeftLegUsage - concussionPenalty, 0.12f, 1f);
+                RightLegUsage = Config.Clamp(RightLegUsage - concussionPenalty, 0.12f, 1f);
+            }
+
             HipsUsage = Math.Min(SpineUsage, Math.Min(LeftLegUsage, RightLegUsage) + 0.12f);
 
             if (torso.Fracture == FractureState.Shattered)
@@ -100,7 +117,10 @@ namespace BonelabAdvancedHealth
             else
                 BreathingPenalty = torso.DamagePercent * 0.18f;
 
+            BreathingPenalty = Config.Clamp(BreathingPenalty + _manager.Lungs.BreathingPanic * 0.65f, 0f, 1.5f);
+
             AimInstability = (1f - Math.Min(LeftArmUsage, RightArmUsage)) + head.DamagePercent * 0.25f + _manager.PainNormalized * 0.2f;
+            AimInstability += _manager.Brain.DisorientationNormalized * 0.55f + _manager.Lungs.OxygenStress * 0.25f;
             AimInstability = Config.Clamp(AimInstability, 0f, 1.35f);
 
             if (Math.Abs(oldLeftLeg - LeftLegUsage) > 0.001f ||

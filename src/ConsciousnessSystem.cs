@@ -59,7 +59,11 @@ namespace BonelabAdvancedHealth
             float painDanger = _manager.PainNormalized;
             float fractureDanger = _manager.Fractures.GetMovementPenalty() * 0.35f;
             float headDanger = _manager.GetLimb(BodyPart.Head).DamagePercent * 0.75f;
-            float danger = Config.Clamp(bloodDanger + painDanger * 0.45f + fractureDanger + headDanger + _shock, 0f, 2.5f);
+            float oxygenDanger = _manager.Lungs.OxygenStress * 0.95f;
+            float brainDanger = _manager.Brain.DisorientationNormalized * 0.65f;
+            float awarenessDanger = _manager.AwarenessPenalty * 0.5f;
+            float cardiacDanger = _manager.Organs.CardiacArrestActive ? 1.4f : 0f;
+            float danger = Config.Clamp(bloodDanger + painDanger * 0.45f + fractureDanger + headDanger + oxygenDanger + brainDanger + awarenessDanger + cardiacDanger + _shock, 0f, 3.5f);
 
             if (State == ConsciousnessState.Awake)
             {
@@ -144,7 +148,9 @@ namespace BonelabAdvancedHealth
         {
             float bloodRecovery = Config.Clamp((_manager.Bleeding.BloodVolumeMl - Config.CriticalBloodMl) / Math.Max(1f, Config.BloodVolumeMl - Config.CriticalBloodMl), 0f, 1f);
             float painRecovery = 1f - _manager.PainNormalized;
-            float chance = 0.03f + bloodRecovery * 0.22f + painRecovery * 0.12f - danger * 0.10f;
+            float oxygenRecovery = _manager.Lungs.OxygenNormalized;
+            float brainRecovery = 1f - _manager.Brain.DisorientationNormalized;
+            float chance = 0.02f + bloodRecovery * 0.18f + painRecovery * 0.10f + oxygenRecovery * 0.08f + brainRecovery * 0.08f - danger * 0.12f;
             return Config.Clamp(chance, 0.005f, 0.38f);
         }
 
@@ -210,9 +216,9 @@ namespace BonelabAdvancedHealth
             if (_manager.Kind != HealthOwnerKind.Player || _heartbeatSource == null || _breathingSource == null)
                 return;
 
-            float danger = Config.Clamp(BlackoutIntensity + _manager.PainNormalized * 0.65f + GetBloodDanger() * 0.55f, 0f, 1.5f);
+            float danger = Config.Clamp(BlackoutIntensity + _manager.PainNormalized * 0.65f + GetBloodDanger() * 0.55f + _manager.Lungs.BreathingPanic * 0.5f + _manager.Brain.DisorientationNormalized * 0.35f, 0f, 1.8f);
             float heartbeatVolume = State == ConsciousnessState.Dead ? 0f : Config.Clamp(danger * 0.45f, 0f, 0.55f);
-            float breathingVolume = State == ConsciousnessState.Dead ? 0f : Config.Clamp(0.08f + _manager.Fractures.BreathingPenalty * 0.35f + _manager.PainNormalized * 0.12f, 0f, 0.42f);
+            float breathingVolume = State == ConsciousnessState.Dead ? 0f : Config.Clamp(0.08f + _manager.Fractures.BreathingPenalty * 0.35f + _manager.PainNormalized * 0.12f + _manager.Lungs.BreathingPanic * 0.28f, 0f, 0.55f);
 
             _heartbeatSource.volume = MoveToward(_heartbeatSource.volume, heartbeatVolume, deltaTime * 0.9f);
             _breathingSource.volume = MoveToward(_breathingSource.volume, breathingVolume, deltaTime * 0.65f);
