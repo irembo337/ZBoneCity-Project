@@ -35,6 +35,7 @@ namespace BonelabAdvancedHealth
         public BleedingSystem Bleeding { get; }
         public ConsciousnessSystem Consciousness { get; }
         public FractureSystem Fractures { get; }
+        public BoneSystem Bones { get; }
         public OrganSystem Organs { get; }
         public LungDamageSystem Lungs { get; }
         public BrainTraumaSystem Brain { get; }
@@ -72,6 +73,7 @@ namespace BonelabAdvancedHealth
             _tourniquetSeconds = new float[Config.LimbCount];
             Bleeding = new BleedingSystem(this);
             Consciousness = new ConsciousnessSystem(this);
+            Bones = new BoneSystem(this);
             Fractures = new FractureSystem(this);
             Organs = new OrganSystem(this);
             Lungs = new LungDamageSystem(this);
@@ -114,6 +116,7 @@ namespace BonelabAdvancedHealth
             }
 
             Bleeding.Reset();
+            Bones.Reset();
             Organs.Reset();
             Lungs.Reset();
             Brain.Reset();
@@ -139,6 +142,9 @@ namespace BonelabAdvancedHealth
                 return false;
 
             AddPain(info.Pain * limb.PainMultiplier);
+            BoneDamageFeedback boneFeedback = Bones.ApplyDamage(info);
+            if (boneFeedback.Pain > 0f)
+                AddPain(boneFeedback.Pain);
             BleedSeverity severity = DamageProcessor.GetBleedSeverity(info, limb);
             Bleeding.AddBleed(info, limb, severity);
             OrganDamageFeedback organFeedback = Organs.ApplyDamage(info);
@@ -151,6 +157,8 @@ namespace BonelabAdvancedHealth
             Lungs.ApplyDamage(info, organFeedback);
             Brain.ApplyDamage(info, organFeedback);
             AudioTrauma.OnDamage(info, organFeedback);
+            if (Kind == HealthOwnerKind.Player)
+                MainMod.Runtime?.Hud.OnDamageVisual(info, organFeedback);
             MainMod.Runtime?.BloodFx.OnDamage(this, info, organFeedback);
             Consciousness.ApplyDamageImpulse(info);
             RecalculateTrauma();
@@ -247,6 +255,7 @@ namespace BonelabAdvancedHealth
         public void StabilizeFracture(BodyPart part, float strength)
         {
             GetLimb(part).StabilizeFracture(strength);
+            Bones.StabilizeMostDamaged(strength);
             VitalsChanged?.Invoke(this);
         }
 
@@ -356,6 +365,14 @@ namespace BonelabAdvancedHealth
                 return false;
 
             float timeDelta = Math.Abs(info.Time - _lastDamageTime);
+            if (info.DamageType == AdvancedDamageType.Fall && info.SourceId == _lastSourceId)
+            {
+                if (timeDelta < 0.18f && info.BodyPart == _lastPart)
+                    return true;
+                if (timeDelta < 0.075f)
+                    return true;
+            }
+
             return timeDelta < 0.035f &&
                    info.SourceId == _lastSourceId &&
                    info.AttackOrder == _lastAttackOrder &&
@@ -376,7 +393,7 @@ namespace BonelabAdvancedHealth
                 return;
             }
 
-            if (TotalTraumaNormalized >= 0.985f)
+            if (TotalTraumaNormalized >= 0.995f)
                 RequestDeath(DeathCause.Trauma);
         }
 

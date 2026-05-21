@@ -117,7 +117,7 @@ namespace BonelabAdvancedHealth
             else
                 BreathingPenalty = torso.DamagePercent * 0.18f;
 
-            BreathingPenalty = Config.Clamp(BreathingPenalty + _manager.Lungs.BreathingPanic * 0.65f, 0f, 1.5f);
+            BreathingPenalty = Config.Clamp(BreathingPenalty + _manager.Bones.RibBreathingPenalty + _manager.Lungs.BreathingPanic * 0.65f, 0f, 1.5f);
 
             AimInstability = (1f - Math.Min(LeftArmUsage, RightArmUsage)) + head.DamagePercent * 0.25f + _manager.PainNormalized * 0.2f;
             AimInstability += _manager.Brain.DisorientationNormalized * 0.55f + _manager.Lungs.OxygenStress * 0.25f;
@@ -136,17 +136,17 @@ namespace BonelabAdvancedHealth
 
         private static float UsageFromLimb(LimbHealth limb)
         {
-            float usage = 1f - limb.DamagePercent * 0.45f;
+            float usage = 1f - limb.DamagePercent * 0.34f;
             switch (limb.Fracture)
             {
                 case FractureState.Sprain:
-                    usage *= 0.78f;
+                    usage *= 0.86f;
                     break;
                 case FractureState.Fractured:
-                    usage *= 0.42f;
+                    usage *= 0.55f;
                     break;
                 case FractureState.Shattered:
-                    usage *= 0.18f;
+                    usage *= 0.28f;
                     break;
             }
 

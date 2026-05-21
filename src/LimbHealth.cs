@@ -90,14 +90,16 @@ namespace BonelabAdvancedHealth
         private FractureState DetermineFractureState(DamageInfo info)
         {
             float severity = info.Damage;
-            if (info.DamageType == AdvancedDamageType.Explosion || info.DamageType == AdvancedDamageType.Fall)
+            if (info.DamageType == AdvancedDamageType.Explosion)
                 severity *= 1.25f;
+            else if (info.DamageType == AdvancedDamageType.Fall)
+                severity *= 0.72f;
             if (Part == BodyPart.Head || Part == BodyPart.Torso)
                 severity *= 0.8f;
 
-            if (severity >= 85f)
+            if (severity >= 105f)
                 return FractureState.Shattered;
-            if (severity >= 32f)
+            if (severity >= 46f)
                 return FractureState.Fractured;
             return FractureState.Sprain;
         }

@@ -7,17 +7,30 @@ namespace BonelabAdvancedHealth
 {
     public sealed class HUDSystem
     {
+        private const float CanvasWidth = 1920f;
+        private const float CanvasHeight = 1080f;
         private readonly StringBuilder _builder = new StringBuilder(512);
+        private readonly Color32[] _noisePixels = new Color32[160 * 90];
         private GameObject? _root;
+        private GameObject? _statusRoot;
+        private Image? _statusBack;
         private Text? _vitalsText;
         private Text? _limbText;
         private Image? _bloodFill;
         private Image? _painFill;
+        private Image? _blackout;
         private Image? _vignette;
         private Image? _desaturation;
+        private Image? _painOverlay;
+        private Image? _headHitOverlay;
+        private Image? _noiseOverlay;
+        private Texture2D? _noiseTexture;
         private Font? _font;
         private float _lastBlackout;
         private float _lastPain;
+        private float _painPulse;
+        private float _headHitPulse;
+        private float _noiseTimer;
         private ConsciousnessState _lastState;
 
         public bool IsCreated => _root != null;
@@ -38,6 +51,21 @@ namespace BonelabAdvancedHealth
                 Build(head);
             else if (_root.transform.parent != head)
                 AttachToHead(head);
+        }
+
+        public void UpdateRealtime(float deltaTime, HealthManager manager)
+        {
+            if (!Config.HudEnabled)
+                return;
+
+            EnsureCreated();
+            if (_root == null)
+                return;
+
+            _painPulse = Mathf.Max(0f, _painPulse - deltaTime * 0.85f);
+            _headHitPulse = Mathf.Max(0f, _headHitPulse - deltaTime * 0.55f);
+            SetConsciousnessEffects(manager.Consciousness.BlackoutIntensity, manager.PainNormalized, manager.Consciousness.State);
+            SetPhysiologicalEffects(manager, deltaTime);
         }
 
         public void UpdateHud(HealthManager manager)
@@ -67,6 +95,14 @@ namespace BonelabAdvancedHealth
             _builder.Append("%");
             _builder.Append("\nSTATE ");
             _builder.Append(GetStateLabel(manager.Consciousness.State));
+            _builder.Append("\nRIBS ");
+            _builder.Append(manager.Bones.FracturedRibCount);
+            _builder.Append("/12");
+            if (manager.Bones.TotalBrokenBoneCount > manager.Bones.FracturedRibCount)
+            {
+                _builder.Append("\nBONES ");
+                _builder.Append(manager.Bones.TotalBrokenBoneCount);
+            }
             if (manager.Organs.CardiacArrestActive)
                 _builder.Append("\nCARDIAC ARREST");
             else if (manager.Lungs.HasCollapsedLung)
@@ -93,8 +129,17 @@ namespace BonelabAdvancedHealth
             AppendLimbLine(_builder, manager, BodyPart.RightLeg, "R LEG");
             _limbText.text = _builder.ToString();
 
-            SetConsciousnessEffects(_lastBlackout, _lastPain, _lastState);
-            SetPhysiologicalEffects(manager);
+            UpdateStatusVisibility(manager);
+            UpdateRealtime(Config.SystemTickInterval, manager);
+        }
+
+        public void OnDamageVisual(DamageInfo info, OrganDamageFeedback feedback)
+        {
+            float intensity = Config.Clamp(info.Damage / 85f, 0f, 1f);
+            if (info.BodyPart == BodyPart.Head)
+                _headHitPulse = Mathf.Max(_headHitPulse, Config.Clamp(0.32f + intensity * 0.9f, 0f, 1.25f));
+            if (info.Pain > 8f || feedback.Pain > 5f)
+                _painPulse = Mathf.Max(_painPulse, Config.Clamp((info.Pain + feedback.Pain) / 90f, 0f, 1f));
         }
 
         public void SetConsciousnessEffects(float blackout, float pain, ConsciousnessState state)
@@ -103,26 +148,52 @@ namespace BonelabAdvancedHealth
             _lastPain = Config.Clamp(pain, 0f, 1f);
             _lastState = state;
 
-            if (_vignette == null || _desaturation == null)
+            if (_blackout == null || _vignette == null || _desaturation == null || _painOverlay == null || _headHitOverlay == null)
                 return;
 
-            float darkAlpha = state == ConsciousnessState.Dead ? 0.92f : Config.Clamp(_lastBlackout * 0.68f + _lastPain * 0.12f, 0f, 0.78f);
-            float greyAlpha = state == ConsciousnessState.Dead ? 0.35f : Config.Clamp(_lastBlackout * 0.24f + _lastPain * 0.08f, 0f, 0.32f);
-            _vignette.color = new Color(0f, 0f, 0f, darkAlpha);
-            _desaturation.color = new Color(0.55f, 0.55f, 0.55f, greyAlpha);
+            float pulse = 0.5f + 0.5f * Mathf.Sin(Time.time * Mathf.Lerp(1.2f, 3.8f, _lastBlackout + _lastPain));
+            float unconsciousBoost = state == ConsciousnessState.Unconscious ? 0.28f + pulse * 0.08f : 0f;
+            float blackAlpha = state == ConsciousnessState.Dead
+                ? 0.96f
+                : Config.Clamp(_lastBlackout * 0.72f + unconsciousBoost, 0f, 0.94f);
+            float vignetteAlpha = state == ConsciousnessState.Dead
+                ? 0.98f
+                : Config.Clamp(0.18f + _lastBlackout * 0.72f + _lastPain * 0.18f + _headHitPulse * 0.18f, 0f, 0.96f);
+            float greyAlpha = state == ConsciousnessState.Dead
+                ? 0.45f
+                : Config.Clamp(_lastBlackout * 0.22f + _lastPain * 0.10f + _headHitPulse * 0.18f, 0f, 0.52f);
+
+            _blackout.color = new Color(0f, 0f, 0f, blackAlpha);
+            _vignette.color = new Color(0f, 0f, 0f, vignetteAlpha);
+            _desaturation.color = new Color(0.48f, 0.50f, 0.48f, greyAlpha);
+            _painOverlay.color = new Color(0.45f, 0.0f, 0.0f, Config.Clamp(_lastPain * 0.12f + _painPulse * 0.22f, 0f, 0.38f));
+            _headHitOverlay.color = new Color(0.95f, 0.96f, 0.90f, Config.Clamp(_headHitPulse * 0.28f, 0f, 0.42f));
         }
 
-        public void SetPhysiologicalEffects(HealthManager manager)
+        public void SetPhysiologicalEffects(HealthManager manager, float deltaTime)
         {
-            if (_vignette == null || _desaturation == null)
+            if (_blackout == null || _vignette == null || _desaturation == null || _noiseOverlay == null)
                 return;
 
-            float pulse = 0.5f + 0.5f * Mathf.Sin(Time.time * Mathf.Lerp(1.4f, 4.6f, manager.PainNormalized + manager.Lungs.OxygenStress));
-            float tunnel = Config.Clamp(manager.Consciousness.BlackoutIntensity * 0.55f + manager.Lungs.OxygenStress * 0.45f + manager.Brain.DisorientationNormalized * 0.35f, 0f, 1f);
-            float darkAlpha = Config.Clamp(_vignette.color.a + tunnel * 0.25f + pulse * manager.PainNormalized * 0.06f, 0f, manager.Consciousness.State == ConsciousnessState.Dead ? 0.95f : 0.86f);
-            float greyAlpha = Config.Clamp(_desaturation.color.a + manager.Lungs.OxygenStress * 0.28f + manager.Brain.DisorientationNormalized * 0.18f, 0f, 0.55f);
-            _vignette.color = new Color(0f, 0f, 0f, darkAlpha);
-            _desaturation.color = new Color(0.55f, 0.55f, 0.55f, greyAlpha);
+            float pulse = 0.5f + 0.5f * Mathf.Sin(Time.time * Mathf.Lerp(1.4f, 4.8f, manager.PainNormalized + manager.Lungs.OxygenStress + _headHitPulse));
+            float tunnel = Config.Clamp(manager.Consciousness.BlackoutIntensity * 0.60f + manager.Lungs.OxygenStress * 0.45f + manager.Brain.DisorientationNormalized * 0.40f, 0f, 1f);
+            float darkAlpha = Config.Clamp(_blackout.color.a + tunnel * 0.14f + pulse * manager.PainNormalized * 0.045f, 0f, manager.Consciousness.State == ConsciousnessState.Dead ? 0.97f : 0.94f);
+            float greyAlpha = Config.Clamp(_desaturation.color.a + manager.Lungs.OxygenStress * 0.22f + manager.Brain.DisorientationNormalized * 0.22f, 0f, 0.62f);
+            float noiseAlpha = Config.Clamp(_headHitPulse * 0.18f + manager.Brain.RingingIntensity * 0.08f + manager.Lungs.WhiteNoiseIntensity * 0.10f, 0f, 0.24f);
+
+            _blackout.color = new Color(0f, 0f, 0f, darkAlpha);
+            _desaturation.color = new Color(0.48f, 0.50f, 0.48f, greyAlpha);
+            _vignette.transform.localScale = Vector3.one * Mathf.Lerp(1.0f, 1.22f, tunnel + pulse * 0.06f);
+            _noiseOverlay.color = new Color(1f, 1f, 1f, noiseAlpha);
+
+            _noiseTimer += deltaTime;
+            if (_noiseTimer >= 0.055f && noiseAlpha > 0.01f)
+            {
+                _noiseTimer = 0f;
+                RefreshNoiseTexture(noiseAlpha);
+            }
+
+            UpdateStatusVisibility(manager);
         }
 
         public void Destroy()
@@ -133,52 +204,69 @@ namespace BonelabAdvancedHealth
                 _root = null;
             }
 
+            _statusRoot = null;
+            _statusBack = null;
             _vitalsText = null;
             _limbText = null;
             _bloodFill = null;
             _painFill = null;
+            _blackout = null;
             _vignette = null;
             _desaturation = null;
+            _painOverlay = null;
+            _headHitOverlay = null;
+            _noiseOverlay = null;
+            _noiseTexture = null;
         }
 
         private void Build(Transform head)
         {
             _font = Font.GetDefault();
-            _root = new GameObject("AHS_VR_HUD");
+            _root = new GameObject("AHS_Fullscreen_Trauma_HUD");
             Canvas canvas = _root.AddComponent<Canvas>();
             canvas.renderMode = RenderMode.WorldSpace;
             canvas.sortingOrder = 32000;
             CanvasScaler scaler = _root.AddComponent<CanvasScaler>();
-            scaler.dynamicPixelsPerUnit = 10f;
+            scaler.dynamicPixelsPerUnit = 12f;
             scaler.referencePixelsPerUnit = 100f;
-            _root.AddComponent<GraphicRaycaster>();
 
             RectTransform rootRect = _root.GetComponent<RectTransform>();
-            rootRect.sizeDelta = new Vector2(420f, 260f);
+            rootRect.sizeDelta = new Vector2(CanvasWidth, CanvasHeight);
             AttachToHead(head);
 
-            GameObject panel = CreatePanel("Panel", _root.transform, new Vector2(420f, 260f), new Vector2(0f, 0f), new Color(0f, 0f, 0f, 0.42f));
-            CreatePanel("BloodBack", panel.transform, new Vector2(370f, 16f), new Vector2(0f, 100f), new Color(0.05f, 0.05f, 0.05f, 0.8f));
-            _bloodFill = CreatePanel("BloodFill", panel.transform, new Vector2(370f, 16f), new Vector2(0f, 100f), new Color(0.65f, 0.02f, 0.02f, 0.95f)).GetComponent<Image>();
+            _desaturation = CreatePanel("Desaturation", _root.transform, FullSize(), Vector2.zero, new Color(0.48f, 0.50f, 0.48f, 0f)).GetComponent<Image>();
+            _painOverlay = CreatePanel("PainPulse", _root.transform, FullSize(), Vector2.zero, new Color(0.45f, 0f, 0f, 0f)).GetComponent<Image>();
+            _headHitOverlay = CreatePanel("HeadHitFlash", _root.transform, FullSize(), Vector2.zero, new Color(1f, 1f, 0.92f, 0f)).GetComponent<Image>();
+            _vignette = CreatePanel("TunnelVignette", _root.transform, FullSize(), Vector2.zero, new Color(0f, 0f, 0f, 0f)).GetComponent<Image>();
+            _vignette.sprite = CreateVignetteSprite();
+            _blackout = CreatePanel("Blackout", _root.transform, FullSize(), Vector2.zero, new Color(0f, 0f, 0f, 0f)).GetComponent<Image>();
+            _noiseOverlay = CreatePanel("Noise", _root.transform, FullSize(), Vector2.zero, new Color(1f, 1f, 1f, 0f)).GetComponent<Image>();
+            _noiseTexture = new Texture2D(160, 90, TextureFormat.RGBA32, false);
+            _noiseTexture.wrapMode = TextureWrapMode.Repeat;
+            _noiseTexture.filterMode = FilterMode.Point;
+            _noiseOverlay.sprite = Sprite.Create(_noiseTexture, new Rect(0f, 0f, 160f, 90f), new Vector2(0.5f, 0.5f), 100f);
+
+            _statusRoot = new GameObject("Status");
+            _statusRoot.transform.SetParent(_root.transform, false);
+            RectTransform statusRect = _statusRoot.AddComponent<RectTransform>();
+            statusRect.sizeDelta = new Vector2(470f, 245f);
+            statusRect.anchoredPosition = new Vector2(-650f, -332f);
+            _statusBack = CreatePanel("StatusBack", _statusRoot.transform, new Vector2(470f, 245f), Vector2.zero, new Color(0f, 0f, 0f, 0.24f)).GetComponent<Image>();
+
+            CreatePanel("BloodBack", _statusRoot.transform, new Vector2(405f, 14f), new Vector2(0f, 92f), new Color(0.03f, 0.03f, 0.03f, 0.58f));
+            _bloodFill = CreatePanel("BloodFill", _statusRoot.transform, new Vector2(405f, 14f), new Vector2(0f, 92f), new Color(0.65f, 0.02f, 0.02f, 0.9f)).GetComponent<Image>();
             _bloodFill.type = Image.Type.Filled;
             _bloodFill.fillMethod = Image.FillMethod.Horizontal;
-            _bloodFill.fillOrigin = 0;
 
-            CreatePanel("PainBack", panel.transform, new Vector2(370f, 10f), new Vector2(0f, 78f), new Color(0.05f, 0.05f, 0.05f, 0.75f));
-            _painFill = CreatePanel("PainFill", panel.transform, new Vector2(370f, 10f), new Vector2(0f, 78f), new Color(0.9f, 0.55f, 0.05f, 0.88f)).GetComponent<Image>();
+            CreatePanel("PainBack", _statusRoot.transform, new Vector2(405f, 8f), new Vector2(0f, 72f), new Color(0.03f, 0.03f, 0.03f, 0.52f));
+            _painFill = CreatePanel("PainFill", _statusRoot.transform, new Vector2(405f, 8f), new Vector2(0f, 72f), new Color(0.9f, 0.55f, 0.05f, 0.82f)).GetComponent<Image>();
             _painFill.type = Image.Type.Filled;
             _painFill.fillMethod = Image.FillMethod.Horizontal;
-            _painFill.fillOrigin = 0;
 
-            _vitalsText = CreateText("Vitals", panel.transform, new Vector2(190f, 142f), new Vector2(-94f, -12f), 18, TextAnchor.UpperLeft);
-            _limbText = CreateText("Limbs", panel.transform, new Vector2(178f, 142f), new Vector2(98f, -12f), 15, TextAnchor.UpperLeft);
+            _vitalsText = CreateText("Vitals", _statusRoot.transform, new Vector2(212f, 150f), new Vector2(-108f, -20f), 18, TextAnchor.UpperLeft);
+            _limbText = CreateText("Limbs", _statusRoot.transform, new Vector2(202f, 150f), new Vector2(112f, -20f), 15, TextAnchor.UpperLeft);
 
-            _desaturation = CreatePanel("Desaturation", _root.transform, new Vector2(920f, 520f), new Vector2(0f, 0f), new Color(0.55f, 0.55f, 0.55f, 0f)).GetComponent<Image>();
-            _vignette = CreatePanel("Vignette", _root.transform, new Vector2(980f, 560f), new Vector2(0f, 0f), new Color(0f, 0f, 0f, 0f)).GetComponent<Image>();
-            _desaturation.raycastTarget = false;
-            _vignette.raycastTarget = false;
-            _desaturation.transform.SetAsFirstSibling();
-            _vignette.transform.SetAsFirstSibling();
+            SetOverlayRaycasts(false);
         }
 
         private void AttachToHead(Transform head)
@@ -187,9 +275,63 @@ namespace BonelabAdvancedHealth
                 return;
 
             _root.transform.SetParent(head, false);
-            _root.transform.localPosition = new Vector3(0f, -0.19f, 0.72f);
+            _root.transform.localPosition = new Vector3(0f, 0f, 0.58f);
             _root.transform.localRotation = Quaternion.identity;
-            _root.transform.localScale = Vector3.one * 0.00135f;
+            _root.transform.localScale = Vector3.one * 0.00074f;
+        }
+
+        private void UpdateStatusVisibility(HealthManager manager)
+        {
+            if (_statusRoot == null || _statusBack == null || _vitalsText == null || _limbText == null || _bloodFill == null || _painFill == null)
+                return;
+
+            float target = manager.Consciousness.State == ConsciousnessState.Unconscious || manager.Consciousness.BlackoutIntensity > 0.72f ? 0f : 1f;
+            bool active = target > 0.01f;
+            if (_statusRoot.activeSelf != active)
+                _statusRoot.SetActive(active);
+
+            if (!active)
+                return;
+
+            float alpha = Config.Clamp(0.34f - manager.Consciousness.BlackoutIntensity * 0.28f, 0.04f, 0.34f);
+            _statusBack.color = new Color(0f, 0f, 0f, alpha);
+            Color textColor = new Color(0.88f, 0.96f, 1f, Config.Clamp(0.92f - manager.Consciousness.BlackoutIntensity * 0.42f, 0.32f, 0.92f));
+            _vitalsText.color = textColor;
+            _limbText.color = textColor;
+            SetImageAlpha(_bloodFill, textColor.a);
+            SetImageAlpha(_painFill, textColor.a);
+        }
+
+        private void RefreshNoiseTexture(float intensity)
+        {
+            if (_noiseTexture == null)
+                return;
+
+            byte alphaMax = (byte)Mathf.Clamp(Mathf.RoundToInt(80f * intensity), 0, 80);
+            for (int i = 0; i < _noisePixels.Length; i++)
+            {
+                byte value = (byte)UnityEngine.Random.Range(180, 255);
+                byte alpha = (byte)UnityEngine.Random.Range(0, alphaMax + 1);
+                _noisePixels[i] = new Color32(value, value, value, alpha);
+            }
+
+            _noiseTexture.SetPixels32(_noisePixels);
+            _noiseTexture.Apply(false, false);
+        }
+
+        private void SetOverlayRaycasts(bool raycastTarget)
+        {
+            SetRaycast(_blackout, raycastTarget);
+            SetRaycast(_vignette, raycastTarget);
+            SetRaycast(_desaturation, raycastTarget);
+            SetRaycast(_painOverlay, raycastTarget);
+            SetRaycast(_headHitOverlay, raycastTarget);
+            SetRaycast(_noiseOverlay, raycastTarget);
+        }
+
+        private static Vector2 FullSize()
+        {
+            return new Vector2(CanvasWidth, CanvasHeight);
         }
 
         private GameObject CreatePanel(string name, Transform parent, Vector2 size, Vector2 anchoredPosition, Color color)
@@ -216,13 +358,50 @@ namespace BonelabAdvancedHealth
             text.font = _font;
             text.fontSize = fontSize;
             text.alignment = anchor;
-            text.color = new Color(0.92f, 0.98f, 1f, 0.96f);
+            text.color = new Color(0.88f, 0.96f, 1f, 0.92f);
             text.supportRichText = false;
             text.resizeTextForBestFit = true;
-            text.resizeTextMinSize = 10;
+            text.resizeTextMinSize = 9;
             text.resizeTextMaxSize = fontSize;
             text.raycastTarget = false;
             return text;
+        }
+
+        private static Sprite CreateVignetteSprite()
+        {
+            const int size = 256;
+            Texture2D texture = new Texture2D(size, size, TextureFormat.RGBA32, false);
+            texture.wrapMode = TextureWrapMode.Clamp;
+            texture.filterMode = FilterMode.Bilinear;
+            Color32[] pixels = new Color32[size * size];
+            Vector2 center = new Vector2((size - 1) * 0.5f, (size - 1) * 0.5f);
+            float max = center.magnitude;
+            for (int y = 0; y < size; y++)
+            {
+                for (int x = 0; x < size; x++)
+                {
+                    float d = (new Vector2(x, y) - center).magnitude / max;
+                    float alpha = Mathf.SmoothStep(0.16f, 0.96f, d);
+                    pixels[y * size + x] = new Color32(0, 0, 0, (byte)Mathf.RoundToInt(alpha * 255f));
+                }
+            }
+
+            texture.SetPixels32(pixels);
+            texture.Apply(false, true);
+            return Sprite.Create(texture, new Rect(0f, 0f, size, size), new Vector2(0.5f, 0.5f), 100f);
+        }
+
+        private static void SetRaycast(Image? image, bool value)
+        {
+            if (image != null)
+                image.raycastTarget = value;
+        }
+
+        private static void SetImageAlpha(Image image, float alpha)
+        {
+            Color color = image.color;
+            color.a = alpha;
+            image.color = color;
         }
 
         private static void AppendLimbLine(StringBuilder builder, HealthManager manager, BodyPart part, string label)
@@ -253,9 +432,9 @@ namespace BonelabAdvancedHealth
                 return 0;
 
             float bloodStress = 1f - manager.Bleeding.BloodNormalized;
-            float pulse = 66f + manager.PainNormalized * 38f + bloodStress * 44f + manager.Bleeding.TotalBleedRateMlPerSecond * 0.18f;
-            pulse += manager.Lungs.BreathingPanic * 24f;
-            pulse *= Mathf.Lerp(0.36f, 1f, manager.PulseModifier);
+            float pulse = 66f + manager.PainNormalized * 34f + bloodStress * 38f + manager.Bleeding.TotalBleedRateMlPerSecond * 0.14f;
+            pulse += manager.Lungs.BreathingPanic * 20f;
+            pulse *= Mathf.Lerp(0.40f, 1f, manager.PulseModifier);
             if (manager.Consciousness.State == ConsciousnessState.Unconscious)
                 pulse *= 0.72f;
             return Mathf.Clamp(Mathf.RoundToInt(pulse), 28, 178);

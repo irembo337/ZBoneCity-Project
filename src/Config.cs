@@ -9,6 +9,7 @@ namespace BonelabAdvancedHealth
         public const string ModVersion = "1.0.0";
         public const int LimbCount = 6;
         public const int OrganCount = 6;
+        public const int BoneCount = 23;
         public const int MaxBleedSources = 24;
         public const int MaxMedicalItems = 24;
         public const int MaxBloodDecals = 96;
@@ -254,6 +255,33 @@ namespace BonelabAdvancedHealth
         Damaged = 1,
         Critical = 2,
         Failed = 3
+    }
+
+    public enum BoneType
+    {
+        Skull = 0,
+        Spine = 1,
+        Pelvis = 2,
+        LeftHumerus = 3,
+        RightHumerus = 4,
+        LeftForearm = 5,
+        RightForearm = 6,
+        LeftFemur = 7,
+        RightFemur = 8,
+        LeftShin = 9,
+        RightShin = 10,
+        LeftRib1 = 11,
+        LeftRib2 = 12,
+        LeftRib3 = 13,
+        LeftRib4 = 14,
+        LeftRib5 = 15,
+        LeftRib6 = 16,
+        RightRib1 = 17,
+        RightRib2 = 18,
+        RightRib3 = 19,
+        RightRib4 = 20,
+        RightRib5 = 21,
+        RightRib6 = 22
     }
 
     public enum HealthOwnerKind

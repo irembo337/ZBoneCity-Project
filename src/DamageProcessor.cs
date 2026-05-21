@@ -258,11 +258,17 @@ namespace BonelabAdvancedHealth
                 Rigidbody rb = collision.rigidbody;
                 if (rb != null)
                     sourceId = rb.GetInstanceID();
-                ContactPoint contact = collision.GetContact(0);
-                origin = contact.point;
+                else if (collision.collider != null)
+                    sourceId = collision.collider.GetInstanceID();
+                if (collision.contactCount > 0)
+                {
+                    ContactPoint contact = collision.GetContact(0);
+                    origin = contact.point;
+                }
             }
 
-            float damage = Math.Max(0f, (velocity - 4.5f) * 8.0f) * ownerScale;
+            float excess = Math.Max(0f, velocity - GetFallDamageThreshold(part));
+            float damage = excess <= 0f ? 0f : (excess * excess * 2.15f + excess * 1.35f) * ownerScale;
             DamageProfile profile = GetProfile(AdvancedDamageType.Fall);
             float limbMultiplier = GetBodyPartDamageMultiplier(part, AdvancedDamageType.Fall);
             float finalDamage = damage * limbMultiplier;
@@ -314,13 +320,13 @@ namespace BonelabAdvancedHealth
                 case AdvancedDamageType.Bullet:
                     return new DamageProfile(1.35f, 0.08f, 1.05f, 0.0065f);
                 case AdvancedDamageType.Blunt:
-                    return new DamageProfile(0.08f, 0.22f, 1.22f, 0.0100f);
+                    return new DamageProfile(0.08f, 0.16f, 1.02f, 0.0075f);
                 case AdvancedDamageType.Explosion:
                     return new DamageProfile(0.75f, 0.38f, 1.65f, 0.0175f);
                 case AdvancedDamageType.Stab:
                     return new DamageProfile(1.85f, 0.05f, 1.15f, 0.0040f);
                 case AdvancedDamageType.Fall:
-                    return new DamageProfile(0.04f, 0.34f, 1.30f, 0.0120f);
+                    return new DamageProfile(0.02f, 0.035f, 0.62f, 0.0035f);
                 default:
                     return new DamageProfile(0.2f, 0.05f, 1.0f, 0.0030f);
             }
@@ -333,13 +339,13 @@ namespace BonelabAdvancedHealth
                 case AdvancedDamageType.Bullet:
                     return 0.0025f;
                 case AdvancedDamageType.Blunt:
-                    return 0.0075f;
+                    return 0.0048f;
                 case AdvancedDamageType.Explosion:
                     return 0.0085f;
                 case AdvancedDamageType.Stab:
                     return 0.0015f;
                 case AdvancedDamageType.Fall:
-                    return 0.0090f;
+                    return 0.0022f;
                 default:
                     return 0.0030f;
             }
@@ -358,7 +364,7 @@ namespace BonelabAdvancedHealth
                     break;
                 case BodyPart.LeftLeg:
                 case BodyPart.RightLeg:
-                    partMult = type == AdvancedDamageType.Fall ? 1.35f : 0.95f;
+                    partMult = type == AdvancedDamageType.Fall ? 0.82f : 0.95f;
                     break;
                 default:
                     partMult = 0.85f;
@@ -369,6 +375,24 @@ namespace BonelabAdvancedHealth
                 partMult += 0.15f;
 
             return partMult;
+        }
+
+        private static float GetFallDamageThreshold(BodyPart part)
+        {
+            switch (part)
+            {
+                case BodyPart.Head:
+                    return 6.2f;
+                case BodyPart.LeftLeg:
+                case BodyPart.RightLeg:
+                    return 7.2f;
+                case BodyPart.LeftArm:
+                case BodyPart.RightArm:
+                    return 6.8f;
+                case BodyPart.Torso:
+                default:
+                    return 6.6f;
+            }
         }
 
         private static bool SourceLooksExplosive(Collider sourceCollider)

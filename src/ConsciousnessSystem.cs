@@ -63,18 +63,18 @@ namespace BonelabAdvancedHealth
             float brainDanger = _manager.Brain.DisorientationNormalized * 0.65f;
             float awarenessDanger = _manager.AwarenessPenalty * 0.5f;
             float cardiacDanger = _manager.Organs.CardiacArrestActive ? 1.4f : 0f;
-            float danger = Config.Clamp(bloodDanger + painDanger * 0.45f + fractureDanger + headDanger + oxygenDanger + brainDanger + awarenessDanger + cardiacDanger + _shock, 0f, 3.5f);
+            float danger = Config.Clamp(bloodDanger + painDanger * 0.25f + fractureDanger + headDanger + oxygenDanger + brainDanger + awarenessDanger + cardiacDanger + _shock, 0f, 3.5f);
 
             if (State == ConsciousnessState.Awake)
             {
                 BlackoutIntensity = MoveToward(BlackoutIntensity, Math.Max(0f, danger - 0.55f), deltaTime * 1.6f);
-                if (danger >= 1.0f)
+                if (danger >= 1.14f)
                     SetState(ConsciousnessState.Blackout);
             }
             else if (State == ConsciousnessState.Blackout)
             {
                 BlackoutIntensity = MoveToward(BlackoutIntensity, Config.Clamp(danger, 0.35f, 1f), deltaTime * 1.25f);
-                if (danger >= 1.28f || _manager.Bleeding.BloodVolumeMl <= Config.CriticalBloodMl)
+                if (danger >= 1.52f || _manager.Bleeding.BloodVolumeMl <= Config.CriticalBloodMl)
                     SetUnconscious(6f + danger * 10f);
                 else if (danger < 0.42f)
                     SetState(ConsciousnessState.Awake);

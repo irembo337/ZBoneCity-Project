@@ -7,6 +7,7 @@ namespace BonelabAdvancedHealth
     {
         private readonly HealthManager _manager;
         private readonly AudioClip[] _painClips;
+        private readonly ZCityAudioSystem _zCityAudio;
         private GameObject? _rig;
         private AudioSource? _painSource;
         private AudioSource? _ringSource;
@@ -26,6 +27,7 @@ namespace BonelabAdvancedHealth
         public AudioTraumaSystem(HealthManager manager)
         {
             _manager = manager;
+            _zCityAudio = new ZCityAudioSystem(manager);
             _painClips = new AudioClip[5];
             for (int i = 0; i < _painClips.Length; i++)
                 _painClips[i] = CreatePainClip(i);
@@ -49,10 +51,22 @@ namespace BonelabAdvancedHealth
                 _noiseSource.volume = 0f;
             if (_lowPulseSource != null)
                 _lowPulseSource.volume = 0f;
+            _zCityAudio.Reset();
+        }
+
+        public void Destroy()
+        {
+            _zCityAudio.Destroy();
+            if (_rig != null)
+            {
+                UnityEngine.Object.Destroy(_rig);
+                _rig = null;
+            }
         }
 
         public void OnDamage(DamageInfo info, OrganDamageFeedback organFeedback)
         {
+            _zCityAudio.OnDamage(info, organFeedback);
             float intensity = Config.Clamp(info.Damage / 85f + _manager.PainNormalized * 0.5f, 0f, 1f);
             if (info.BodyPart == BodyPart.Head)
                 intensity += 0.22f;
@@ -69,6 +83,7 @@ namespace BonelabAdvancedHealth
             Transform? anchor = GetAnchor();
             if (anchor != null)
                 EnsureRig(anchor);
+            _zCityAudio.Update(deltaTime);
 
             _painCooldown = Math.Max(0f, _painCooldown - deltaTime);
             _impactShock = Math.Max(0f, _impactShock - deltaTime * 0.18f);
@@ -145,6 +160,11 @@ namespace BonelabAdvancedHealth
         {
             if (_painSource == null)
                 return;
+            if (_manager.Kind == HealthOwnerKind.Player && _zCityAudio.HasPainTrack)
+            {
+                _painCooldown = Config.Clamp(1.2f - intensity * 0.45f, 0.45f, 1.2f);
+                return;
+            }
 
             int index = _manager.Random.Next(0, _painClips.Length);
             _painSource.clip = _painClips[index];

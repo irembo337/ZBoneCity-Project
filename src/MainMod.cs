@@ -64,6 +64,8 @@ namespace BonelabAdvancedHealth
             }
 
             _tickAccumulator += deltaTime;
+            if (_player != null)
+                Hud.UpdateRealtime(deltaTime, _player);
             _medical.Update(deltaTime, _player);
 
             if (_tickAccumulator < Config.SystemTickInterval)
@@ -92,7 +94,10 @@ namespace BonelabAdvancedHealth
             ThoughtUi.Destroy();
             BloodFx.Reset();
             if (_player != null)
+            {
                 _player.Consciousness.Destroy();
+                _player.AudioTrauma.Destroy();
+            }
             Runtime = null;
         }
 
@@ -387,7 +392,7 @@ namespace BonelabAdvancedHealth
                 if (!Config.Enabled || !Config.NpcEnabled || Runtime == null || __instance == null || collison == null || isStay)
                     return;
 
-                if (relVelocitySqr < 18f)
+                if (relVelocitySqr < 49f)
                     return;
 
                 NPCHealth? manager = Runtime.GetOrCreateNpcManager(__instance);
