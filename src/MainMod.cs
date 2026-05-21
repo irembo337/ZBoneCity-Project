@@ -19,6 +19,7 @@ namespace BonelabAdvancedHealth
         private readonly Dictionary<int, NPCHealth> _npcHealth = new Dictionary<int, NPCHealth>(128);
         private readonly MedicalSystem _medical = new MedicalSystem();
         private float _tickAccumulator;
+        private float _playerRigReadySeconds;
         private HealthManager? _player;
 
         public static MainMod? Runtime { get; private set; }
@@ -47,6 +48,21 @@ namespace BonelabAdvancedHealth
                 return;
 
             float deltaTime = Time.deltaTime;
+
+            if (!IsPlayerRigReady())
+            {
+                _tickAccumulator = 0f;
+                _playerRigReadySeconds = 0f;
+                return;
+            }
+
+            _playerRigReadySeconds += deltaTime;
+            if (_playerRigReadySeconds < 1.0f)
+            {
+                _tickAccumulator = 0f;
+                return;
+            }
+
             _tickAccumulator += deltaTime;
             _medical.Update(deltaTime, _player);
 
@@ -261,6 +277,7 @@ namespace BonelabAdvancedHealth
         private void ResetRuntimeForScene()
         {
             _tickAccumulator = 0f;
+            _playerRigReadySeconds = 0f;
             if (_player != null)
                 _player.Reset();
             _npcHealth.Clear();
@@ -288,6 +305,8 @@ namespace BonelabAdvancedHealth
             {
                 if (!Config.Enabled || Runtime == null || __instance == null)
                     return;
+                if (!Runtime.IsPlayerRigReady())
+                    return;
 
                 HealthManager manager = Runtime.GetOrCreatePlayerManager();
                 DamageInfo info = DamageProcessor.FromPlayerAttack(attack, __instance.bodyPart);
@@ -301,6 +320,8 @@ namespace BonelabAdvancedHealth
             private static void Postfix(PlayerDamageReceiver __instance, Collision collision)
             {
                 if (!Config.Enabled || Runtime == null || __instance == null || collision == null)
+                    return;
+                if (!Runtime.IsPlayerRigReady())
                     return;
 
                 DamageInfo info = DamageProcessor.FromPlayerCollision(collision, __instance.bodyPart);
