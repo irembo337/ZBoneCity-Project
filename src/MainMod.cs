@@ -225,6 +225,23 @@ namespace BonelabAdvancedHealth
             _medical.SpawnDefaultItemsAtPlayer();
         }
 
+        public bool IsPlayerRigReady()
+        {
+            try
+            {
+                PlayerRefs? refs = PlayerRefs.Instance;
+                return refs != null &&
+                       refs.HasRefs &&
+                       refs.PlayerRigManager != null &&
+                       refs.PlayerPhysicsRig != null &&
+                       refs.OpenControllerRig != null;
+            }
+            catch (Exception)
+            {
+                return false;
+            }
+        }
+
         public bool TryGetPlayerFeetPosition(out Vector3 feet)
         {
             feet = Vector3.zero;

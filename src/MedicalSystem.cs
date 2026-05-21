@@ -1,7 +1,5 @@
 using System;
 using System.Collections.Generic;
-using Il2CppSLZ.Marrow;
-using Il2CppSLZ.Marrow.Interaction;
 using UnityEngine;
 
 namespace BonelabAdvancedHealth
@@ -59,7 +57,11 @@ namespace BonelabAdvancedHealth
             if (player == null || player.IsDead)
                 return;
 
-            Transform? head = MainMod.Runtime?.GetHeadTransform();
+            MainMod? runtime = MainMod.Runtime;
+            if (runtime == null || !runtime.IsPlayerRigReady())
+                return;
+
+            Transform? head = runtime.GetHeadTransform();
             if (head == null)
                 return;
 
@@ -209,7 +211,6 @@ namespace BonelabAdvancedHealth
             rb.angularDrag = 0.15f;
             rb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
 
-            TryConfigureMarrowGrip(go, rb);
             AddLabel(go, type);
             _items.Add(new MedicalWorldItem(type, go));
         }
@@ -234,28 +235,6 @@ namespace BonelabAdvancedHealth
                     return new Vector3(0.17f, 0.12f, 0.05f);
                 default:
                     return Vector3.one * 0.1f;
-            }
-        }
-
-        private static void TryConfigureMarrowGrip(GameObject go, Rigidbody rb)
-        {
-            try
-            {
-                MarrowEntity entity = go.AddComponent<MarrowEntity>();
-                MarrowBody body = go.AddComponent<MarrowBody>();
-                body.Validate(rb, entity);
-                BoxGrip grip = go.AddComponent<BoxGrip>();
-                grip.isThrowable = true;
-                grip.radius = 0.28f;
-                grip.gripDistance = 0.34f;
-                grip.canBeFaceGrabbed = true;
-                grip.canBeEdgeGrabbed = true;
-                grip.canBeCornerGrabbed = true;
-                entity.Validate();
-            }
-            catch (Exception ex)
-            {
-                MainMod.Runtime?.Logger.Warning("Marrow grip setup failed for medical item: " + ex.Message);
             }
         }
 

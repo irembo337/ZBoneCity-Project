@@ -36,7 +36,13 @@ namespace BonelabAdvancedHealth
 
         public void Reset()
         {
-            EnsureInitialized();
+            if (!_initialized)
+            {
+                _playerTrailTimer = 0f;
+                _lastPlayerTrailPosition = Vector3.zero;
+                return;
+            }
+
             for (int i = 0; i < _decals.Length; i++)
             {
                 if (_decals[i].GameObject != null)
