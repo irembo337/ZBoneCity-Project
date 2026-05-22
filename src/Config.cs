@@ -53,6 +53,8 @@ namespace BonelabAdvancedHealth
         public static bool PainEffectsEnabled => SettingsMenu.PainEffectsEnabled;
         public static bool OrganSystemEnabled => SettingsMenu.OrganSystemEnabled;
         public static bool RealisticAudioEnabled => SettingsMenu.RealisticAudioEnabled;
+        public static float AudioIntensity => SettingsMenu.AudioIntensity;
+        public static float ScreenEffectsIntensity => SettingsMenu.ScreenEffectsIntensity;
         public static float FractureSeverity => SettingsMenu.FractureSeverity;
         public static bool DebugMode => SettingsMenu.DebugMode;
         public static int HudMode => SettingsMenu.HudMode;

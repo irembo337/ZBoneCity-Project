@@ -9,9 +9,13 @@ namespace BonelabAdvancedHealth
     {
         private const float CanvasWidth = 1920f;
         private const float CanvasHeight = 1080f;
+        private static readonly Vector3 HeadLocalPosition = new Vector3(0f, 0f, 0.58f);
+        private static readonly Vector3 HeadLocalScale = Vector3.one * 0.00074f;
         private readonly StringBuilder _builder = new StringBuilder(512);
         private readonly Color32[] _noisePixels = new Color32[160 * 90];
         private readonly Image?[] _limbVisuals = new Image?[Config.LimbCount];
+        private readonly FullscreenPainEffects _fullscreenPain = new FullscreenPainEffects();
+        private readonly PostProcessingTraumaFX _postFx = new PostProcessingTraumaFX();
         private GameObject? _root;
         private GameObject? _statusRoot;
         private GameObject? _tarkovRoot;
@@ -70,6 +74,9 @@ namespace BonelabAdvancedHealth
             _headHitPulse = Mathf.Max(0f, _headHitPulse - deltaTime * 0.55f);
             SetConsciousnessEffects(manager.Consciousness.BlackoutIntensity, manager.PainNormalized, manager.Consciousness.State);
             SetPhysiologicalEffects(manager, deltaTime);
+            TraumaFrameFx frameFx = _postFx.Evaluate(manager, deltaTime);
+            _fullscreenPain.Update(frameFx, manager);
+            ApplyFrameFx(frameFx);
         }
 
         public void UpdateHud(HealthManager manager)
@@ -227,6 +234,8 @@ namespace BonelabAdvancedHealth
             _noiseOverlay = null;
             _noiseTexture = null;
             _organMonitor = null;
+            _fullscreenPain.Reset();
+            _postFx.Reset();
             for (int i = 0; i < _limbVisuals.Length; i++)
                 _limbVisuals[i] = null;
         }
@@ -250,13 +259,15 @@ namespace BonelabAdvancedHealth
             _painOverlay = CreatePanel("PainPulse", _root.transform, FullSize(), Vector2.zero, new Color(0.45f, 0f, 0f, 0f)).GetComponent<Image>();
             _headHitOverlay = CreatePanel("HeadHitFlash", _root.transform, FullSize(), Vector2.zero, new Color(1f, 1f, 0.92f, 0f)).GetComponent<Image>();
             _vignette = CreatePanel("TunnelVignette", _root.transform, FullSize(), Vector2.zero, new Color(0f, 0f, 0f, 0f)).GetComponent<Image>();
-            _vignette.sprite = CreateVignetteSprite();
+            Sprite vignetteSprite = CreateVignetteSprite();
+            _vignette.sprite = vignetteSprite;
             _blackout = CreatePanel("Blackout", _root.transform, FullSize(), Vector2.zero, new Color(0f, 0f, 0f, 0f)).GetComponent<Image>();
             _noiseOverlay = CreatePanel("Noise", _root.transform, FullSize(), Vector2.zero, new Color(1f, 1f, 1f, 0f)).GetComponent<Image>();
             _noiseTexture = new Texture2D(160, 90, TextureFormat.RGBA32, false);
             _noiseTexture.wrapMode = TextureWrapMode.Repeat;
             _noiseTexture.filterMode = FilterMode.Point;
             _noiseOverlay.sprite = Sprite.Create(_noiseTexture, new Rect(0f, 0f, 160f, 90f), new Vector2(0.5f, 0.5f), 100f);
+            _fullscreenPain.Build(_root.transform, vignetteSprite);
 
             BuildTarkovInterface(_root.transform);
 
@@ -380,9 +391,19 @@ namespace BonelabAdvancedHealth
                 return;
 
             _root.transform.SetParent(head, false);
-            _root.transform.localPosition = new Vector3(0f, 0f, 0.58f);
+            _root.transform.localPosition = HeadLocalPosition;
             _root.transform.localRotation = Quaternion.identity;
-            _root.transform.localScale = Vector3.one * 0.00074f;
+            _root.transform.localScale = HeadLocalScale;
+        }
+
+        private void ApplyFrameFx(TraumaFrameFx fx)
+        {
+            if (_root == null)
+                return;
+
+            Vector3 offset = new Vector3(fx.Offset.x * 0.00022f, fx.Offset.y * 0.00022f, 0f);
+            _root.transform.localPosition = HeadLocalPosition + offset;
+            _root.transform.localScale = HeadLocalScale * fx.Scale;
         }
 
         private void UpdateStatusVisibility(HealthManager manager)

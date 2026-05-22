@@ -21,18 +21,21 @@ namespace BonelabAdvancedHealth
         private float _tickAccumulator;
         private float _playerProbeAccumulator;
         private float _sceneLifetime;
+        private bool _playerControlsSuppressed;
         private HealthManager? _player;
 
         public static MainMod? Runtime { get; private set; }
         public HUDSystem Hud { get; } = new HUDSystem();
         public ThoughtUI ThoughtUi { get; } = new ThoughtUI();
         public BloodFXSystem BloodFx { get; } = new BloodFXSystem();
+        public VRHealthMenu HealthMenu { get; } = new VRHealthMenu();
         public MelonLogger.Instance Logger => LoggerInstance;
 
         public override void OnInitializeMelon()
         {
             Runtime = this;
             Config.Load();
+            HealthMenu.Initialize(LoggerInstance);
             HarmonyInstance.PatchAll();
             LoggerInstance.Msg("Initialized with BONELAB runtime references and Harmony patches.");
         }
@@ -52,6 +55,7 @@ namespace BonelabAdvancedHealth
             _sceneLifetime += deltaTime;
             if (_player == null)
                 TryCreatePlayerManagerForHud(deltaTime);
+            HealthMenu.Update(deltaTime, _player);
 
             if (_player == null && _npcHealth.Count == 0)
             {
@@ -101,6 +105,7 @@ namespace BonelabAdvancedHealth
             Hud.Destroy();
             ThoughtUi.Destroy();
             BloodFx.Reset();
+            SetPlayerControlSuppressed(false);
             if (_player != null)
             {
                 _player.Consciousness.Destroy();
@@ -173,18 +178,32 @@ namespace BonelabAdvancedHealth
                 RigManager? rigManager = refs.PlayerRigManager;
                 if (rigManager != null && rigManager.health != null)
                 {
-                    rigManager.health.SetUsage(
-                        fractures.HipsUsage,
-                        fractures.SpineUsage,
-                        fractures.LeftLegUsage,
-                        fractures.RightLegUsage,
-                        fractures.LeftArmUsage,
-                        fractures.RightArmUsage);
+                    if (_playerControlsSuppressed)
+                    {
+                        rigManager.health.SetUsage(0.08f, 0.08f, 0.05f, 0.05f, 0.05f, 0.05f);
+                    }
+                    else
+                    {
+                        rigManager.health.SetUsage(
+                            fractures.HipsUsage,
+                            fractures.SpineUsage,
+                            fractures.LeftLegUsage,
+                            fractures.RightLegUsage,
+                            fractures.LeftArmUsage,
+                            fractures.RightArmUsage);
+                    }
                 }
 
                 PhysicsRig? physicsRig = refs.PlayerPhysicsRig;
                 if (physicsRig == null)
                     return;
+
+                if (_playerControlsSuppressed)
+                {
+                    ApplyHandSuppression(physicsRig.leftHand, true, false);
+                    ApplyHandSuppression(physicsRig.rightHand, true, false);
+                    return;
+                }
 
                 ApplyHandGrip(physicsRig.leftHand, fractures.GetGripStrength(BodyPart.LeftArm));
                 ApplyHandGrip(physicsRig.rightHand, fractures.GetGripStrength(BodyPart.RightArm));
@@ -192,6 +211,30 @@ namespace BonelabAdvancedHealth
             catch (Exception ex)
             {
                 LoggerInstance.Warning("Failed to apply player limb usage: " + ex.Message);
+            }
+        }
+
+        public void SetPlayerControlSuppressed(bool suppressed)
+        {
+            if (_playerControlsSuppressed == suppressed)
+                return;
+
+            _playerControlsSuppressed = suppressed;
+            try
+            {
+                PlayerRefs? refs = PlayerRefs.Instance;
+                PhysicsRig? physicsRig = refs != null && refs.HasRefs ? refs.PlayerPhysicsRig : null;
+                if (physicsRig == null)
+                    physicsRig = UnityEngine.Object.FindObjectOfType<PhysicsRig>();
+                if (physicsRig == null)
+                    return;
+
+                ApplyHandSuppression(physicsRig.leftHand, suppressed, true);
+                ApplyHandSuppression(physicsRig.rightHand, suppressed, true);
+            }
+            catch (Exception ex)
+            {
+                LoggerInstance.Warning("Failed to suppress player controls: " + ex.Message);
             }
         }
 
@@ -310,6 +353,7 @@ namespace BonelabAdvancedHealth
             _tickAccumulator = 0f;
             _playerProbeAccumulator = 0f;
             _sceneLifetime = 0f;
+            SetPlayerControlSuppressed(false);
             if (_player != null)
             {
                 _player.Consciousness.Destroy();
@@ -333,6 +377,44 @@ namespace BonelabAdvancedHealth
             hand.SetGripStrength(strength);
             if (hand.physHand != null)
                 hand.physHand.gripMult = strength;
+        }
+
+        private static void ApplyHandSuppression(Hand hand, bool suppressed, bool forceRelease)
+        {
+            if (hand == null)
+                return;
+
+            try
+            {
+                if (suppressed && forceRelease && hand.HasAttachedObject())
+                    hand.DetachObject();
+            }
+            catch (Exception)
+            {
+            }
+
+            try
+            {
+                hand.GrabLock = suppressed;
+                hand.hoverLocked = suppressed;
+                if (suppressed)
+                    hand.HoverLock();
+                else
+                    hand.HoverUnlock();
+            }
+            catch (Exception)
+            {
+            }
+
+            try
+            {
+                hand.SetGripStrength(suppressed ? 0f : 1f);
+                if (hand.physHand != null)
+                    hand.physHand.gripMult = suppressed ? 0f : 1f;
+            }
+            catch (Exception)
+            {
+            }
         }
 
         [HarmonyPatch(typeof(PlayerDamageReceiver), nameof(PlayerDamageReceiver.ReceiveAttack))]

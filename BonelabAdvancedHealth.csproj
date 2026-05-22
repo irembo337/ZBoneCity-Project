@@ -30,6 +30,10 @@
       <HintPath>$(MelonNet6Path)\Il2CppInterop.Runtime.dll</HintPath>
       <Private>false</Private>
     </Reference>
+    <Reference Include="BoneLib">
+      <HintPath>$(BonelabPath)\Mods\BoneLib.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
     <Reference Include="Il2CppSystem">
       <HintPath>$(Il2CppPath)\Il2CppSystem.dll</HintPath>
       <Private>false</Private>

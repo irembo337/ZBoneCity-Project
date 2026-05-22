@@ -70,11 +70,13 @@ namespace BonelabAdvancedHealth
                 BlackoutIntensity = MoveToward(BlackoutIntensity, Math.Max(0f, danger - 0.55f), deltaTime * 1.6f);
                 if (danger >= 1.14f)
                     SetState(ConsciousnessState.Blackout);
+                if (_manager.PainSystem.InPainShock && danger >= 1.35f)
+                    SetUnconscious(2.8f + danger * 4.0f);
             }
             else if (State == ConsciousnessState.Blackout)
             {
                 BlackoutIntensity = MoveToward(BlackoutIntensity, Config.Clamp(danger, 0.35f, 1f), deltaTime * 1.25f);
-                if (danger >= 1.52f || _manager.Bleeding.BloodVolumeMl <= Config.CriticalBloodMl)
+                if (danger >= 1.52f || _manager.Bleeding.BloodVolumeMl <= Config.CriticalBloodMl || _manager.PainSystem.InPainShock && danger >= 1.25f)
                     SetUnconscious(6f + danger * 10f);
                 else if (danger < 0.42f)
                     SetState(ConsciousnessState.Awake);
@@ -168,6 +170,7 @@ namespace BonelabAdvancedHealth
             {
                 bool ragdoll = next == ConsciousnessState.Unconscious || next == ConsciousnessState.Dead;
                 MainMod.Runtime?.SetPlayerRagdoll(ragdoll);
+                MainMod.Runtime?.SetPlayerControlSuppressed(ragdoll);
             }
             else if (_manager is NPCHealth npc)
             {
@@ -223,8 +226,9 @@ namespace BonelabAdvancedHealth
                 return;
 
             float danger = Config.Clamp(BlackoutIntensity + _manager.PainNormalized * 0.65f + GetBloodDanger() * 0.55f + _manager.Lungs.BreathingPanic * 0.5f + _manager.Brain.DisorientationNormalized * 0.35f, 0f, 1.8f);
-            float heartbeatVolume = State == ConsciousnessState.Dead ? 0f : Config.Clamp(danger * 0.45f, 0f, 0.55f);
-            float breathingVolume = State == ConsciousnessState.Dead ? 0f : Config.Clamp(0.08f + _manager.Fractures.BreathingPenalty * 0.35f + _manager.PainNormalized * 0.12f + _manager.Lungs.BreathingPanic * 0.28f, 0f, 0.55f);
+            float audioIntensity = Config.AudioIntensity;
+            float heartbeatVolume = State == ConsciousnessState.Dead ? 0f : Config.Clamp(danger * 0.45f * audioIntensity, 0f, 0.72f);
+            float breathingVolume = State == ConsciousnessState.Dead ? 0f : Config.Clamp((0.08f + _manager.Fractures.BreathingPenalty * 0.35f + _manager.PainNormalized * 0.12f + _manager.Lungs.BreathingPanic * 0.28f) * audioIntensity, 0f, 0.72f);
 
             _heartbeatSource.volume = MoveToward(_heartbeatSource.volume, heartbeatVolume, deltaTime * 0.9f);
             _breathingSource.volume = MoveToward(_breathingSource.volume, breathingVolume, deltaTime * 0.65f);

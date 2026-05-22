@@ -190,7 +190,7 @@ namespace BonelabAdvancedHealth
             float intensity = _pendingHeadHitIntensity;
             _pendingHeadHitIntensity = 0f;
             _headHitSource.Stop();
-            _headHitSource.volume = Mathf.Lerp(0.45f, 0.92f, intensity);
+            _headHitSource.volume = Mathf.Lerp(0.45f, 0.92f, intensity) * Config.AudioIntensity;
             _headHitSource.pitch = Mathf.Lerp(0.92f, 0.72f, intensity);
             _headHitSource.time = 0f;
             _headHitSource.Play();
@@ -202,7 +202,7 @@ namespace BonelabAdvancedHealth
             if (source == null)
                 return;
 
-            source.volume = MoveToward(source.volume, targetVolume, deltaTime * 0.55f);
+            source.volume = MoveToward(source.volume, targetVolume * Config.AudioIntensity, deltaTime * 0.55f);
             source.pitch = Mathf.Lerp(minPitch, maxPitch, Config.Clamp(targetVolume * 1.8f, 0f, 1f));
 
             if (source.volume > 0.015f)

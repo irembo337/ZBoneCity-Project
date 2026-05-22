@@ -97,6 +97,7 @@ namespace BonelabAdvancedHealth
             float oxygenNoise = _manager.Lungs.WhiteNoiseIntensity;
             RingingIntensity = Config.Clamp(_manager.Brain.RingingIntensity + _impactShock * 0.75f + _manager.Consciousness.BlackoutIntensity * 0.25f, 0f, 1f);
             MuffleIntensity = Config.Clamp(_manager.Consciousness.BlackoutIntensity * 0.75f + _manager.AwarenessPenalty + _manager.Brain.DisorientationNormalized * 0.4f, 0f, 1f);
+            float audioIntensity = Config.AudioIntensity;
 
             if (_pendingPainIntensity > 0.05f && _painCooldown <= 0f)
                 PlayPain(_pendingPainIntensity);
@@ -104,14 +105,14 @@ namespace BonelabAdvancedHealth
 
             if (_ringSource != null)
             {
-                _ringSource.volume = MoveToward(_ringSource.volume, RingingIntensity * 0.22f, deltaTime * 0.9f);
+                _ringSource.volume = MoveToward(_ringSource.volume, RingingIntensity * 0.22f * audioIntensity, deltaTime * 0.9f);
                 _ringSource.pitch = 0.85f + RingingIntensity * 0.35f;
                 EnsureLoop(_ringSource);
             }
 
             if (_noiseSource != null)
             {
-                _noiseSource.volume = MoveToward(_noiseSource.volume, oxygenNoise * 0.32f, deltaTime * 0.8f);
+                _noiseSource.volume = MoveToward(_noiseSource.volume, oxygenNoise * 0.32f * audioIntensity, deltaTime * 0.8f);
                 _noiseSource.pitch = 0.82f + _manager.Lungs.BreathingPanic * 0.45f;
                 EnsureLoop(_noiseSource);
             }
@@ -119,7 +120,7 @@ namespace BonelabAdvancedHealth
             if (_lowPulseSource != null)
             {
                 float heartDanger = 1f - _manager.Organs.HeartbeatStrength;
-                _lowPulseSource.volume = MoveToward(_lowPulseSource.volume, heartDanger * 0.26f, deltaTime * 0.8f);
+                _lowPulseSource.volume = MoveToward(_lowPulseSource.volume, heartDanger * 0.26f * audioIntensity, deltaTime * 0.8f);
                 _lowPulseSource.pitch = 0.75f + _manager.Organs.HeartbeatStrength * 0.45f;
                 EnsureLoop(_lowPulseSource);
             }
@@ -174,7 +175,7 @@ namespace BonelabAdvancedHealth
 
             int index = _manager.Random.Next(0, _painClips.Length);
             _painSource.clip = _painClips[index];
-            _painSource.volume = Config.Clamp(0.12f + intensity * 0.55f, 0f, 0.78f);
+            _painSource.volume = Config.Clamp((0.12f + intensity * 0.55f) * Config.AudioIntensity, 0f, 0.95f);
             _painSource.pitch = Config.Clamp(0.82f + (float)_manager.Random.NextDouble() * 0.26f - intensity * 0.1f, 0.62f, 1.2f);
             _painSource.Play();
             _painCooldown = Config.Clamp(1.8f - intensity * 0.7f, 0.55f, 1.8f);
