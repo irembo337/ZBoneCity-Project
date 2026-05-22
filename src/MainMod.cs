@@ -19,7 +19,8 @@ namespace BonelabAdvancedHealth
         private readonly Dictionary<int, NPCHealth> _npcHealth = new Dictionary<int, NPCHealth>(128);
         private readonly MedicalSystem _medical = new MedicalSystem();
         private float _tickAccumulator;
-        private float _playerRigReadySeconds;
+        private float _playerProbeAccumulator;
+        private float _sceneLifetime;
         private HealthManager? _player;
 
         public static MainMod? Runtime { get; private set; }
@@ -48,16 +49,17 @@ namespace BonelabAdvancedHealth
                 return;
 
             float deltaTime = Time.deltaTime;
+            _sceneLifetime += deltaTime;
+            if (_player == null)
+                TryCreatePlayerManagerForHud(deltaTime);
 
-            if (!IsPlayerRigReady())
+            if (_player == null && _npcHealth.Count == 0)
             {
                 _tickAccumulator = 0f;
-                _playerRigReadySeconds = 0f;
                 return;
             }
 
-            _playerRigReadySeconds += deltaTime;
-            if (_playerRigReadySeconds < 1.0f)
+            if (_player != null && !IsPlayerRigReady())
             {
                 _tickAccumulator = 0f;
                 return;
@@ -65,18 +67,24 @@ namespace BonelabAdvancedHealth
 
             _tickAccumulator += deltaTime;
             if (_player != null)
+            {
                 Hud.UpdateRealtime(deltaTime, _player);
-            _medical.Update(deltaTime, _player);
+                _medical.Update(deltaTime, _player);
+            }
 
             if (_tickAccumulator < Config.SystemTickInterval)
                 return;
 
             float elapsed = _tickAccumulator;
             _tickAccumulator = 0f;
-            HealthManager? player = GetOrCreatePlayerManager();
-            player.UpdateSystems(elapsed);
-            Hud.UpdateHud(player);
-            ThoughtUi.Update(elapsed, player);
+            HealthManager? player = _player;
+            if (player != null)
+            {
+                player.UpdateSystems(elapsed);
+                Hud.UpdateHud(player);
+                ThoughtUi.Update(elapsed, player);
+            }
+
             BloodFx.Update(elapsed, player, _npcHealth.Values);
 
             foreach (NPCHealth npc in _npcHealth.Values)
@@ -110,6 +118,24 @@ namespace BonelabAdvancedHealth
             }
 
             return _player;
+        }
+
+        private void TryCreatePlayerManagerForHud(float deltaTime)
+        {
+            if (!Config.HudEnabled || _sceneLifetime < 2.0f)
+                return;
+
+            _playerProbeAccumulator += deltaTime;
+            if (_playerProbeAccumulator < 0.5f)
+                return;
+
+            _playerProbeAccumulator = 0f;
+            if (!IsPlayerRigReady())
+                return;
+
+            HealthManager manager = GetOrCreatePlayerManager();
+            Hud.EnsureCreated();
+            Hud.UpdateHud(manager);
         }
 
         public NPCHealth? GetOrCreateNpcManager(Enemy_Health enemyHealth)
@@ -282,9 +308,15 @@ namespace BonelabAdvancedHealth
         private void ResetRuntimeForScene()
         {
             _tickAccumulator = 0f;
-            _playerRigReadySeconds = 0f;
+            _playerProbeAccumulator = 0f;
+            _sceneLifetime = 0f;
             if (_player != null)
-                _player.Reset();
+            {
+                _player.Consciousness.Destroy();
+                _player.AudioTrauma.Destroy();
+                _player = null;
+            }
+
             _npcHealth.Clear();
             Hud.Destroy();
             ThoughtUi.Destroy();
@@ -308,14 +340,21 @@ namespace BonelabAdvancedHealth
         {
             private static void Postfix(PlayerDamageReceiver __instance, Attack attack)
             {
-                if (!Config.Enabled || Runtime == null || __instance == null)
-                    return;
-                if (!Runtime.IsPlayerRigReady())
-                    return;
+                try
+                {
+                    if (!Config.Enabled || Runtime == null || __instance == null)
+                        return;
+                    if (!Runtime.IsPlayerRigReady())
+                        return;
 
-                HealthManager manager = Runtime.GetOrCreatePlayerManager();
-                DamageInfo info = DamageProcessor.FromPlayerAttack(attack, __instance.bodyPart);
-                manager.ApplyDamage(info);
+                    HealthManager manager = Runtime.GetOrCreatePlayerManager();
+                    DamageInfo info = DamageProcessor.FromPlayerAttack(attack, __instance.bodyPart);
+                    manager.ApplyDamage(info);
+                }
+                catch (Exception ex)
+                {
+                    Runtime?.Logger.Warning("Player attack health patch failed: " + ex.Message);
+                }
             }
         }
 
@@ -324,13 +363,22 @@ namespace BonelabAdvancedHealth
         {
             private static void Postfix(PlayerDamageReceiver __instance, Collision collision)
             {
-                if (!Config.Enabled || Runtime == null || __instance == null || collision == null)
-                    return;
-                if (!Runtime.IsPlayerRigReady())
-                    return;
+                try
+                {
+                    if (!Config.Enabled || Runtime == null || __instance == null || collision == null)
+                        return;
+                    if (collision.relativeVelocity.sqrMagnitude < 49f)
+                        return;
+                    if (!Runtime.IsPlayerRigReady())
+                        return;
 
-                DamageInfo info = DamageProcessor.FromPlayerCollision(collision, __instance.bodyPart);
-                Runtime.GetOrCreatePlayerManager().ApplyDamage(info);
+                    DamageInfo info = DamageProcessor.FromPlayerCollision(collision, __instance.bodyPart);
+                    Runtime.GetOrCreatePlayerManager().ApplyDamage(info);
+                }
+                catch (Exception ex)
+                {
+                    Runtime?.Logger.Warning("Player collision health patch failed: " + ex.Message);
+                }
             }
         }
 
@@ -366,21 +414,28 @@ namespace BonelabAdvancedHealth
         {
             private static void Postfix(EnemyDamageReceiver __instance, Attack attack)
             {
-                if (!Config.Enabled || !Config.NpcEnabled || Runtime == null || __instance == null)
-                    return;
+                try
+                {
+                    if (!Config.Enabled || !Config.NpcEnabled || Runtime == null || __instance == null)
+                        return;
 
-                Enemy_Health enemyHealth = __instance.e_health;
-                if (enemyHealth == null)
-                    enemyHealth = __instance.GetComponentInParent<Enemy_Health>();
-                if (enemyHealth == null)
-                    return;
+                    Enemy_Health enemyHealth = __instance.e_health;
+                    if (enemyHealth == null)
+                        enemyHealth = __instance.GetComponentInParent<Enemy_Health>();
+                    if (enemyHealth == null)
+                        return;
 
-                NPCHealth? manager = Runtime.GetOrCreateNpcManager(enemyHealth);
-                if (manager == null)
-                    return;
+                    NPCHealth? manager = Runtime.GetOrCreateNpcManager(enemyHealth);
+                    if (manager == null)
+                        return;
 
-                DamageInfo info = DamageProcessor.FromNpcAttack(attack, __instance.bodyPart);
-                manager.ApplyDamage(info);
+                    DamageInfo info = DamageProcessor.FromNpcAttack(attack, __instance.bodyPart);
+                    manager.ApplyDamage(info);
+                }
+                catch (Exception ex)
+                {
+                    Runtime?.Logger.Warning("NPC attack health patch failed: " + ex.Message);
+                }
             }
         }
 
@@ -389,18 +444,25 @@ namespace BonelabAdvancedHealth
         {
             private static void Postfix(Enemy_Health __instance, Collision collison, float relVelocitySqr, EnemyCollisonRelay.BodyPart part, bool isStay)
             {
-                if (!Config.Enabled || !Config.NpcEnabled || Runtime == null || __instance == null || collison == null || isStay)
-                    return;
+                try
+                {
+                    if (!Config.Enabled || !Config.NpcEnabled || Runtime == null || __instance == null || collison == null || isStay)
+                        return;
 
-                if (relVelocitySqr < 49f)
-                    return;
+                    if (relVelocitySqr < 49f)
+                        return;
 
-                NPCHealth? manager = Runtime.GetOrCreateNpcManager(__instance);
-                if (manager == null)
-                    return;
+                    NPCHealth? manager = Runtime.GetOrCreateNpcManager(__instance);
+                    if (manager == null)
+                        return;
 
-                DamageInfo info = DamageProcessor.FromNpcCollision(collison, part);
-                manager.ApplyDamage(info);
+                    DamageInfo info = DamageProcessor.FromNpcCollision(collison, part);
+                    manager.ApplyDamage(info);
+                }
+                catch (Exception ex)
+                {
+                    Runtime?.Logger.Warning("NPC collision health patch failed: " + ex.Message);
+                }
             }
         }
 

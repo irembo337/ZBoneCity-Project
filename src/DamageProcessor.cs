@@ -22,6 +22,7 @@ namespace BonelabAdvancedHealth
         public readonly int SourceId;
         public readonly int AttackOrder;
         public readonly float Time;
+        public readonly Collider? SourceCollider;
 
         public DamageInfo(
             BodyPart bodyPart,
@@ -35,7 +36,8 @@ namespace BonelabAdvancedHealth
             Vector3 direction,
             int sourceId,
             int attackOrder,
-            float time)
+            float time,
+            Collider? sourceCollider = null)
         {
             BodyPart = bodyPart;
             DamageType = damageType;
@@ -49,6 +51,7 @@ namespace BonelabAdvancedHealth
             SourceId = sourceId;
             AttackOrder = attackOrder;
             Time = time;
+            SourceCollider = sourceCollider;
         }
     }
 
@@ -224,7 +227,7 @@ namespace BonelabAdvancedHealth
             DamageProfile profile = GetProfile(advancedType);
             float limbMultiplier = GetBodyPartDamageMultiplier(part, advancedType);
             float finalDamage = damage * limbMultiplier;
-            float fractureChance = Config.Clamp(profile.FractureBaseChance + finalDamage * GetFractureDamageCoefficient(advancedType), 0f, 0.95f);
+            float fractureChance = Config.Clamp((profile.FractureBaseChance + finalDamage * GetFractureDamageCoefficient(advancedType)) * Config.FractureSeverity, 0f, 0.95f);
             float pain = finalDamage * profile.PainFactor;
             float unconsciousness = finalDamage * profile.UnconsciousnessFactor;
 
@@ -240,7 +243,8 @@ namespace BonelabAdvancedHealth
                 direction,
                 sourceId,
                 order,
-                Time.time);
+                Time.time,
+                sourceCollider);
         }
 
         private static DamageInfo FromCollision(Collision collision, BodyPart part, float ownerScale)
@@ -272,7 +276,7 @@ namespace BonelabAdvancedHealth
             DamageProfile profile = GetProfile(AdvancedDamageType.Fall);
             float limbMultiplier = GetBodyPartDamageMultiplier(part, AdvancedDamageType.Fall);
             float finalDamage = damage * limbMultiplier;
-            float fractureChance = Config.Clamp(profile.FractureBaseChance + finalDamage * GetFractureDamageCoefficient(AdvancedDamageType.Fall), 0f, 0.98f);
+            float fractureChance = Config.Clamp((profile.FractureBaseChance + finalDamage * GetFractureDamageCoefficient(AdvancedDamageType.Fall)) * Config.FractureSeverity, 0f, 0.98f);
 
             return new DamageInfo(
                 part,
@@ -286,7 +290,8 @@ namespace BonelabAdvancedHealth
                 direction,
                 sourceId,
                 0,
-                Time.time);
+                Time.time,
+                collision != null ? collision.collider : null);
         }
 
         private static AdvancedDamageType InferAdvancedType(AttackType attackType, Collider? sourceCollider, float damage)

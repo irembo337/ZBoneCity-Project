@@ -66,6 +66,9 @@ namespace BonelabAdvancedHealth
 
         public void OnDamage(DamageInfo info, OrganDamageFeedback organFeedback)
         {
+            if (!Config.RealisticAudioEnabled)
+                return;
+
             _zCityAudio.OnDamage(info, organFeedback);
             float intensity = Config.Clamp(info.Damage / 85f + _manager.PainNormalized * 0.5f, 0f, 1f);
             if (info.BodyPart == BodyPart.Head)
@@ -80,6 +83,9 @@ namespace BonelabAdvancedHealth
 
         public void Update(float deltaTime)
         {
+            if (!Config.RealisticAudioEnabled)
+                return;
+
             Transform? anchor = GetAnchor();
             if (anchor != null)
                 EnsureRig(anchor);

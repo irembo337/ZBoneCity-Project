@@ -82,10 +82,6 @@
       <HintPath>$(Il2CppPath)\UnityEngine.IMGUIModule.dll</HintPath>
       <Private>false</Private>
     </Reference>
-    <Reference Include="UnityEngine.VideoModule">
-      <HintPath>$(Il2CppPath)\UnityEngine.VideoModule.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
     <Reference Include="UnityEngine.InputLegacyModule">
       <HintPath>$(Il2CppPath)\UnityEngine.InputLegacyModule.dll</HintPath>
       <Private>false</Private>

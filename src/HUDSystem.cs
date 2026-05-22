@@ -11,11 +11,14 @@ namespace BonelabAdvancedHealth
         private const float CanvasHeight = 1080f;
         private readonly StringBuilder _builder = new StringBuilder(512);
         private readonly Color32[] _noisePixels = new Color32[160 * 90];
+        private readonly Image?[] _limbVisuals = new Image?[Config.LimbCount];
         private GameObject? _root;
         private GameObject? _statusRoot;
+        private GameObject? _tarkovRoot;
         private Image? _statusBack;
         private Text? _vitalsText;
         private Text? _limbText;
+        private Text? _conditionText;
         private Image? _bloodFill;
         private Image? _painFill;
         private Image? _blackout;
@@ -32,6 +35,7 @@ namespace BonelabAdvancedHealth
         private float _headHitPulse;
         private float _noiseTimer;
         private ConsciousnessState _lastState;
+        private OrganMonitorUI? _organMonitor;
 
         public bool IsCreated => _root != null;
 
@@ -129,6 +133,9 @@ namespace BonelabAdvancedHealth
             AppendLimbLine(_builder, manager, BodyPart.RightLeg, "R LEG");
             _limbText.text = _builder.ToString();
 
+            UpdateTarkovInterface(manager);
+            _organMonitor?.SetVisible(Config.HudMode != 0 && manager.Consciousness.State != ConsciousnessState.Unconscious);
+            _organMonitor?.Update(manager);
             UpdateStatusVisibility(manager);
             UpdateRealtime(Config.SystemTickInterval, manager);
         }
@@ -208,6 +215,8 @@ namespace BonelabAdvancedHealth
             _statusBack = null;
             _vitalsText = null;
             _limbText = null;
+            _conditionText = null;
+            _tarkovRoot = null;
             _bloodFill = null;
             _painFill = null;
             _blackout = null;
@@ -217,6 +226,9 @@ namespace BonelabAdvancedHealth
             _headHitOverlay = null;
             _noiseOverlay = null;
             _noiseTexture = null;
+            _organMonitor = null;
+            for (int i = 0; i < _limbVisuals.Length; i++)
+                _limbVisuals[i] = null;
         }
 
         private void Build(Transform head)
@@ -246,6 +258,8 @@ namespace BonelabAdvancedHealth
             _noiseTexture.filterMode = FilterMode.Point;
             _noiseOverlay.sprite = Sprite.Create(_noiseTexture, new Rect(0f, 0f, 160f, 90f), new Vector2(0.5f, 0.5f), 100f);
 
+            BuildTarkovInterface(_root.transform);
+
             _statusRoot = new GameObject("Status");
             _statusRoot.transform.SetParent(_root.transform, false);
             RectTransform statusRect = _statusRoot.AddComponent<RectTransform>();
@@ -266,7 +280,98 @@ namespace BonelabAdvancedHealth
             _vitalsText = CreateText("Vitals", _statusRoot.transform, new Vector2(212f, 150f), new Vector2(-108f, -20f), 18, TextAnchor.UpperLeft);
             _limbText = CreateText("Limbs", _statusRoot.transform, new Vector2(202f, 150f), new Vector2(112f, -20f), 15, TextAnchor.UpperLeft);
 
+            _organMonitor = new OrganMonitorUI(_font);
+            _organMonitor.Build(_root.transform);
             SetOverlayRaycasts(false);
+        }
+
+        private void BuildTarkovInterface(Transform parent)
+        {
+            _tarkovRoot = new GameObject("TarkovBodyMonitor");
+            _tarkovRoot.transform.SetParent(parent, false);
+            RectTransform rootRect = _tarkovRoot.AddComponent<RectTransform>();
+            rootRect.sizeDelta = new Vector2(430f, 600f);
+            rootRect.anchoredPosition = new Vector2(-560f, -68f);
+
+            Image back = _tarkovRoot.AddComponent<Image>();
+            back.color = new Color(0f, 0f, 0f, 0.18f);
+            back.raycastTarget = false;
+
+            CreateLimbSegment(BodyPart.Head, new Vector2(74f, 70f), new Vector2(0f, 205f), 0f);
+            CreateLimbSegment(BodyPart.Torso, new Vector2(126f, 215f), new Vector2(0f, 68f), 0f);
+            CreateLimbSegment(BodyPart.LeftArm, new Vector2(58f, 245f), new Vector2(-112f, 48f), -13f);
+            CreateLimbSegment(BodyPart.RightArm, new Vector2(58f, 245f), new Vector2(112f, 48f), 13f);
+            CreateLimbSegment(BodyPart.LeftLeg, new Vector2(62f, 235f), new Vector2(-45f, -183f), 5f);
+            CreateLimbSegment(BodyPart.RightLeg, new Vector2(62f, 235f), new Vector2(45f, -183f), -5f);
+
+            GameObject spine = CreatePanel("SkeletonSpine", _tarkovRoot.transform, new Vector2(20f, 265f), new Vector2(0f, 26f), new Color(0.72f, 0.78f, 0.80f, 0.28f));
+            spine.transform.localRotation = Quaternion.Euler(0f, 0f, 0f);
+            CreatePanel("RibHint", _tarkovRoot.transform, new Vector2(160f, 70f), new Vector2(0f, 100f), new Color(0.72f, 0.78f, 0.80f, 0.16f));
+            _conditionText = CreateText("ConditionText", _tarkovRoot.transform, new Vector2(350f, 88f), new Vector2(0f, -255f), 16, TextAnchor.UpperCenter);
+        }
+
+        private void CreateLimbSegment(BodyPart part, Vector2 size, Vector2 position, float rotation)
+        {
+            if (_tarkovRoot == null)
+                return;
+
+            GameObject go = CreatePanel("Limb_" + part, _tarkovRoot.transform, size, position, new Color(0.62f, 0.68f, 0.70f, 0.30f));
+            go.transform.localRotation = Quaternion.Euler(0f, 0f, rotation);
+            _limbVisuals[(int)part] = go.GetComponent<Image>();
+        }
+
+        private void UpdateTarkovInterface(HealthManager manager)
+        {
+            if (_tarkovRoot == null)
+                return;
+
+            bool show = Config.HudMode != 0 && manager.Consciousness.State != ConsciousnessState.Unconscious;
+            if (_tarkovRoot.activeSelf != show)
+                _tarkovRoot.SetActive(show);
+            if (!show)
+                return;
+
+            for (int i = 0; i < Config.LimbCount; i++)
+            {
+                Image? image = _limbVisuals[i];
+                if (image == null)
+                    continue;
+
+                BodyPart part = (BodyPart)i;
+                LimbHealth limb = manager.GetLimb(part);
+                float damage = limb.DamagePercent;
+                BleedSeverity bleed = manager.Bleeding.GetWorstBleedingSeverity(part);
+                float bleedPulse = bleed == BleedSeverity.None ? 0f : 0.18f + Mathf.Sin(Time.time * 6.5f) * 0.10f;
+                float fracturePulse = limb.Fracture == FractureState.None ? 0f : 0.22f + Mathf.Sin(Time.time * 9.0f) * 0.16f;
+                Color baseColor = new Color(0.62f, 0.68f, 0.70f, 0.30f);
+                Color damageColor = limb.Hp <= 1f
+                    ? new Color(0.18f, 0f, 0f, 0.86f)
+                    : Color.Lerp(baseColor, new Color(1f, 0.02f, 0f, 0.86f), Config.Clamp(damage + bleedPulse, 0f, 1f));
+                if (fracturePulse > 0f)
+                    damageColor = Color.Lerp(damageColor, new Color(1f, 0.42f, 0.02f, 0.94f), Config.Clamp(fracturePulse, 0f, 1f));
+                image.color = damageColor;
+            }
+
+            if (_conditionText != null)
+            {
+                _builder.Length = 0;
+                _builder.Append("PULSE ");
+                _builder.Append(CalculatePulse(manager));
+                _builder.Append("  BLOOD ");
+                _builder.Append(Mathf.RoundToInt(manager.Bleeding.BloodNormalized * 100f));
+                _builder.Append("%  O2 ");
+                _builder.Append(Mathf.RoundToInt(manager.Lungs.OxygenNormalized * 100f));
+                _builder.Append("%\n");
+                _builder.Append(GetStateLabel(manager.Consciousness.State));
+                if (manager.PainSystem.InPainShock)
+                    _builder.Append("  PAIN SHOCK");
+                if (manager.Brain.HasActiveConcussion)
+                    _builder.Append("  CONCUSSION");
+                if (manager.Bleeding.HasActiveBleeding)
+                    _builder.Append("  BLEEDING");
+                _conditionText.text = _builder.ToString();
+                _conditionText.color = Color.Lerp(new Color(0.84f, 0.94f, 1f, 0.86f), new Color(1f, 0.28f, 0.18f, 0.96f), manager.PainNormalized);
+            }
         }
 
         private void AttachToHead(Transform head)

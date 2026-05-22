@@ -101,9 +101,19 @@ namespace BonelabAdvancedHealth
 
             if (_manager.Brain.HasActiveConcussion)
             {
-                float concussionPenalty = _manager.Brain.DisorientationNormalized * 0.18f;
+                float concussionPenalty = _manager.Brain.DisorientationNormalized * 0.18f + _manager.Brain.BalanceLoss * 0.12f;
                 LeftLegUsage = Config.Clamp(LeftLegUsage - concussionPenalty, 0.12f, 1f);
                 RightLegUsage = Config.Clamp(RightLegUsage - concussionPenalty, 0.12f, 1f);
+            }
+
+            if (Config.PainEffectsEnabled)
+            {
+                float painMove = _manager.PainSystem.MovementPenalty;
+                LeftLegUsage = Config.Clamp(LeftLegUsage - painMove * 0.34f, 0.12f, 1f);
+                RightLegUsage = Config.Clamp(RightLegUsage - painMove * 0.34f, 0.12f, 1f);
+                LeftArmUsage = Config.Clamp(LeftArmUsage - painMove * 0.16f, 0.12f, 1f);
+                RightArmUsage = Config.Clamp(RightArmUsage - painMove * 0.16f, 0.12f, 1f);
+                SpineUsage = Config.Clamp(SpineUsage - painMove * 0.10f, 0.12f, 1f);
             }
 
             HipsUsage = Math.Min(SpineUsage, Math.Min(LeftLegUsage, RightLegUsage) + 0.12f);
@@ -117,10 +127,10 @@ namespace BonelabAdvancedHealth
             else
                 BreathingPenalty = torso.DamagePercent * 0.18f;
 
-            BreathingPenalty = Config.Clamp(BreathingPenalty + _manager.Bones.RibBreathingPenalty + _manager.Lungs.BreathingPanic * 0.65f, 0f, 1.5f);
+            BreathingPenalty = Config.Clamp(BreathingPenalty + _manager.Bones.RibBreathingPenalty + _manager.Lungs.BreathingPanic * 0.65f + _manager.PainSystem.BreathingStress * 0.28f, 0f, 1.5f);
 
             AimInstability = (1f - Math.Min(LeftArmUsage, RightArmUsage)) + head.DamagePercent * 0.25f + _manager.PainNormalized * 0.2f;
-            AimInstability += _manager.Brain.DisorientationNormalized * 0.55f + _manager.Lungs.OxygenStress * 0.25f;
+            AimInstability += _manager.Brain.DisorientationNormalized * 0.55f + _manager.Lungs.OxygenStress * 0.25f + _manager.PainSystem.AimInstability * 0.42f;
             AimInstability = Config.Clamp(AimInstability, 0f, 1.35f);
 
             if (Math.Abs(oldLeftLeg - LeftLegUsage) > 0.001f ||
@@ -140,13 +150,13 @@ namespace BonelabAdvancedHealth
             switch (limb.Fracture)
             {
                 case FractureState.Sprain:
-                    usage *= 0.86f;
+                    usage *= Config.Clamp(1f - 0.14f * Config.FractureSeverity, 0.55f, 0.94f);
                     break;
                 case FractureState.Fractured:
-                    usage *= 0.55f;
+                    usage *= Config.Clamp(1f - 0.45f * Config.FractureSeverity, 0.22f, 0.75f);
                     break;
                 case FractureState.Shattered:
-                    usage *= 0.28f;
+                    usage *= Config.Clamp(1f - 0.72f * Config.FractureSeverity, 0.10f, 0.48f);
                     break;
             }
 

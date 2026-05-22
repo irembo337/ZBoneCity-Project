@@ -51,19 +51,19 @@ namespace BonelabAdvancedHealth
                 return;
             }
 
-            if (_manager.Kind == HealthOwnerKind.Player)
+            if (_manager.Kind == HealthOwnerKind.Player && Config.RealisticAudioEnabled)
                 EnsureAudioRig(MainMod.Runtime?.GetHeadTransform());
 
             _shock = Config.Clamp(_shock - deltaTime * 0.035f, 0f, 1.25f);
             float bloodDanger = GetBloodDanger();
-            float painDanger = _manager.PainNormalized;
+            float painDanger = _manager.PainSystem.BlackoutPressure;
             float fractureDanger = _manager.Fractures.GetMovementPenalty() * 0.35f;
             float headDanger = _manager.GetLimb(BodyPart.Head).DamagePercent * 0.75f;
             float oxygenDanger = _manager.Lungs.OxygenStress * 0.95f;
             float brainDanger = _manager.Brain.DisorientationNormalized * 0.65f;
             float awarenessDanger = _manager.AwarenessPenalty * 0.5f;
             float cardiacDanger = _manager.Organs.CardiacArrestActive ? 1.4f : 0f;
-            float danger = Config.Clamp(bloodDanger + painDanger * 0.25f + fractureDanger + headDanger + oxygenDanger + brainDanger + awarenessDanger + cardiacDanger + _shock, 0f, 3.5f);
+            float danger = Config.Clamp(bloodDanger + painDanger * 0.42f + fractureDanger + headDanger + oxygenDanger + brainDanger + awarenessDanger + cardiacDanger + _shock, 0f, 3.5f);
 
             if (State == ConsciousnessState.Awake)
             {
@@ -106,8 +106,12 @@ namespace BonelabAdvancedHealth
                 impulse *= 1.65f;
 
             _shock = Config.Clamp(_shock + impulse, 0f, 1.35f);
-            if (info.BodyPart == BodyPart.Head && info.Damage >= 45f)
-                SetUnconscious(3.5f + info.Damage * 0.08f);
+            if (info.BodyPart == BodyPart.Head &&
+                info.Damage >= 62f &&
+                (info.DamageType == AdvancedDamageType.Bullet || info.DamageType == AdvancedDamageType.Explosion))
+            {
+                SetUnconscious(3.5f + info.Damage * 0.055f);
+            }
         }
 
         public void SetUnconscious(float seconds)
@@ -177,6 +181,8 @@ namespace BonelabAdvancedHealth
         {
             if (_manager.Kind != HealthOwnerKind.Player)
                 return;
+            if (!Config.UnconsciousEffectsEnabled)
+                return;
 
             MainMod.Runtime?.Hud.SetConsciousnessEffects(BlackoutIntensity, _manager.PainNormalized, State);
         }
@@ -213,7 +219,7 @@ namespace BonelabAdvancedHealth
 
         private void UpdateAudio(float deltaTime)
         {
-            if (_manager.Kind != HealthOwnerKind.Player || _heartbeatSource == null || _breathingSource == null)
+            if (_manager.Kind != HealthOwnerKind.Player || _heartbeatSource == null || _breathingSource == null || !Config.RealisticAudioEnabled)
                 return;
 
             float danger = Config.Clamp(BlackoutIntensity + _manager.PainNormalized * 0.65f + GetBloodDanger() * 0.55f + _manager.Lungs.BreathingPanic * 0.5f + _manager.Brain.DisorientationNormalized * 0.35f, 0f, 1.8f);

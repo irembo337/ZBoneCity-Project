@@ -1,9 +1,7 @@
 using System;
 using System.IO;
-using MelonLoader;
 using MelonLoader.Utils;
 using UnityEngine;
-using UnityEngine.Video;
 
 namespace BonelabAdvancedHealth
 {
@@ -15,14 +13,19 @@ namespace BonelabAdvancedHealth
         private AudioSource? _unconsciousSource;
         private AudioSource? _painSource;
         private AudioSource? _headHitSource;
-        private VideoPlayer? _unconsciousPlayer;
-        private VideoPlayer? _painPlayer;
-        private VideoPlayer? _headHitPlayer;
+        private AudioClip? _unconsciousClip;
+        private AudioClip? _painClip;
+        private AudioClip? _headHitClip;
+        private string? _unconsciousPath;
+        private string? _painPath;
+        private string? _headHitPath;
         private float _headHitCooldown;
+        private float _pendingHeadHitIntensity;
         private bool _initialized;
         private bool _hasUnconsciousTrack;
         private bool _hasPainTrack;
         private bool _hasHeadHitTrack;
+        private bool _warnedAboutMp4;
 
         public bool HasPainTrack => _hasPainTrack;
 
@@ -34,12 +37,10 @@ namespace BonelabAdvancedHealth
         public void Reset()
         {
             _headHitCooldown = 0f;
-            if (_unconsciousSource != null)
-                _unconsciousSource.volume = 0f;
-            if (_painSource != null)
-                _painSource.volume = 0f;
-            if (_headHitSource != null)
-                _headHitSource.volume = 0f;
+            _pendingHeadHitIntensity = 0f;
+            StopAndMute(_unconsciousSource);
+            StopAndMute(_painSource);
+            StopAndMute(_headHitSource);
         }
 
         public void Destroy()
@@ -53,10 +54,16 @@ namespace BonelabAdvancedHealth
             _unconsciousSource = null;
             _painSource = null;
             _headHitSource = null;
-            _unconsciousPlayer = null;
-            _painPlayer = null;
-            _headHitPlayer = null;
+            _unconsciousClip = null;
+            _painClip = null;
+            _headHitClip = null;
+            _unconsciousPath = null;
+            _painPath = null;
+            _headHitPath = null;
             _initialized = false;
+            _hasUnconsciousTrack = false;
+            _hasPainTrack = false;
+            _hasHeadHitTrack = false;
         }
 
         public void OnDamage(DamageInfo info, OrganDamageFeedback feedback)
@@ -64,20 +71,11 @@ namespace BonelabAdvancedHealth
             if (_manager.Kind != HealthOwnerKind.Player)
                 return;
 
-            EnsureInitialized();
-            if (!_hasHeadHitTrack || _headHitPlayer == null || _headHitSource == null || _headHitCooldown > 0f)
-                return;
-
             if (info.BodyPart != BodyPart.Head && feedback.PrimaryOrgan != OrganType.Brain)
                 return;
 
             float intensity = Config.Clamp(0.35f + info.Damage / 95f, 0.35f, 1f);
-            _headHitSource.volume = Mathf.Lerp(0.45f, 0.92f, intensity);
-            _headHitSource.pitch = Mathf.Lerp(0.92f, 0.72f, intensity);
-            _headHitPlayer.Stop();
-            _headHitPlayer.time = 0.0;
-            _headHitPlayer.Play();
-            _headHitCooldown = Mathf.Lerp(1.25f, 3.0f, intensity);
+            _pendingHeadHitIntensity = Math.Max(_pendingHeadHitIntensity, intensity);
         }
 
         public void Update(float deltaTime)
@@ -101,6 +99,7 @@ namespace BonelabAdvancedHealth
             }
 
             _headHitCooldown = Math.Max(0f, _headHitCooldown - deltaTime);
+            PlayPendingHeadHit();
 
             float unconsciousTarget = _manager.Consciousness.State == ConsciousnessState.Unconscious
                 ? 0.68f
@@ -109,8 +108,12 @@ namespace BonelabAdvancedHealth
                 ? 0f
                 : Config.Clamp((_manager.PainNormalized - 0.30f) * 0.70f + _manager.Fractures.BreathingPenalty * 0.10f, 0f, 0.55f);
 
-            UpdateLoop(_unconsciousPlayer, _unconsciousSource, _hasUnconsciousTrack, unconsciousTarget, deltaTime, 0.65f, 0.96f);
-            UpdateLoop(_painPlayer, _painSource, _hasPainTrack, painTarget, deltaTime, 0.92f, 1.03f);
+            if (unconsciousTarget > 0.015f)
+                EnsureSource(ref _unconsciousSource, ref _unconsciousClip, _unconsciousPath, "UnconsciousTrack", "AHS_ZCity_Unconscious", true);
+            if (painTarget > 0.015f)
+                EnsureSource(ref _painSource, ref _painClip, _painPath, "PainTrack", "AHS_ZCity_Pain", true);
+            UpdateLoop(_unconsciousSource, unconsciousTarget, deltaTime, 0.65f, 0.96f);
+            UpdateLoop(_painSource, painTarget, deltaTime, 0.92f, 1.03f);
         }
 
         private void EnsureInitialized()
@@ -119,13 +122,14 @@ namespace BonelabAdvancedHealth
                 return;
 
             string folder = GetAudioFolder();
-            string unconscious = Path.Combine(folder, "zcity_unconscious.mp4");
-            string pain = Path.Combine(folder, "zcity_pain.mp4");
-            string headHit = Path.Combine(folder, "zcity_headhit.mp4");
-            _hasUnconsciousTrack = File.Exists(unconscious);
-            _hasPainTrack = File.Exists(pain);
-            _hasHeadHitTrack = File.Exists(headHit);
+            _unconsciousPath = Path.Combine(folder, "zcity_unconscious.wav");
+            _painPath = Path.Combine(folder, "zcity_pain.wav");
+            _headHitPath = Path.Combine(folder, "zcity_headhit.wav");
+            _hasUnconsciousTrack = File.Exists(_unconsciousPath);
+            _hasPainTrack = File.Exists(_painPath);
+            _hasHeadHitTrack = File.Exists(_headHitPath);
 
+            WarnAboutMp4Tracks(folder);
             if (!_hasUnconsciousTrack && !_hasPainTrack && !_hasHeadHitTrack)
             {
                 _initialized = true;
@@ -141,42 +145,61 @@ namespace BonelabAdvancedHealth
                 _root.transform.localRotation = Quaternion.identity;
             }
 
-            if (_hasUnconsciousTrack)
-                CreateTrack("UnconsciousTrack", unconscious, true, out _unconsciousPlayer, out _unconsciousSource);
-            if (_hasPainTrack)
-                CreateTrack("PainTrack", pain, true, out _painPlayer, out _painSource);
-            if (_hasHeadHitTrack)
-                CreateTrack("HeadHitTrack", headHit, false, out _headHitPlayer, out _headHitSource);
-
             _initialized = true;
         }
 
-        private void CreateTrack(string name, string path, bool loop, out VideoPlayer player, out AudioSource source)
+        private void EnsureSource(ref AudioSource? source, ref AudioClip? clip, string? path, string sourceName, string clipName, bool loop)
+        {
+            if (source != null || string.IsNullOrEmpty(path))
+                return;
+
+            clip = TryLoadTrack(path, clipName);
+            if (clip != null)
+                source = CreateSource(sourceName, clip, loop);
+        }
+
+        private AudioSource CreateSource(string name, AudioClip clip, bool loop)
         {
             GameObject go = new GameObject("AHS_" + name);
             go.transform.SetParent(_root != null ? _root.transform : null, false);
-            source = go.AddComponent<AudioSource>();
+            AudioSource source = go.AddComponent<AudioSource>();
+            source.clip = clip;
             source.playOnAwake = false;
             source.loop = loop;
             source.spatialBlend = 0f;
             source.volume = 0f;
             source.priority = 12;
-
-            player = go.AddComponent<VideoPlayer>();
-            player.playOnAwake = false;
-            player.source = VideoSource.Url;
-            player.url = path.Replace('\\', '/');
-            player.isLooping = loop;
-            player.skipOnDrop = true;
-            player.audioOutputMode = VideoAudioOutputMode.AudioSource;
-            player.controlledAudioTrackCount = 1;
-            player.EnableAudioTrack(0, true);
-            player.SetTargetAudioSource(0, source);
+            source.bypassEffects = false;
+            source.bypassListenerEffects = false;
+            source.bypassReverbZones = true;
+            return source;
         }
 
-        private static void UpdateLoop(VideoPlayer? player, AudioSource? source, bool hasTrack, float targetVolume, float deltaTime, float minPitch, float maxPitch)
+        private void PlayPendingHeadHit()
         {
-            if (!hasTrack || player == null || source == null)
+            if (_pendingHeadHitIntensity <= 0f || _headHitCooldown > 0f)
+                return;
+
+            EnsureSource(ref _headHitSource, ref _headHitClip, _headHitPath, "HeadHitTrack", "AHS_ZCity_HeadHit", false);
+            if (_headHitSource == null)
+            {
+                _pendingHeadHitIntensity = 0f;
+                return;
+            }
+
+            float intensity = _pendingHeadHitIntensity;
+            _pendingHeadHitIntensity = 0f;
+            _headHitSource.Stop();
+            _headHitSource.volume = Mathf.Lerp(0.45f, 0.92f, intensity);
+            _headHitSource.pitch = Mathf.Lerp(0.92f, 0.72f, intensity);
+            _headHitSource.time = 0f;
+            _headHitSource.Play();
+            _headHitCooldown = Mathf.Lerp(1.25f, 3.0f, intensity);
+        }
+
+        private static void UpdateLoop(AudioSource? source, float targetVolume, float deltaTime, float minPitch, float maxPitch)
+        {
+            if (source == null)
                 return;
 
             source.volume = MoveToward(source.volume, targetVolume, deltaTime * 0.55f);
@@ -184,13 +207,53 @@ namespace BonelabAdvancedHealth
 
             if (source.volume > 0.015f)
             {
-                if (!player.isPlaying)
-                    player.Play();
+                if (!source.isPlaying)
+                    source.Play();
             }
-            else if (player.isPlaying)
+            else if (source.isPlaying)
             {
-                player.Pause();
+                source.Pause();
             }
+        }
+
+        private static AudioClip? TryLoadTrack(string path, string clipName)
+        {
+            if (!File.Exists(path))
+                return null;
+
+            try
+            {
+                return WavAudioLoader.Load(path, clipName);
+            }
+            catch (Exception ex)
+            {
+                MainMod.Runtime?.Logger.Warning("Failed to load WAV audio track " + Path.GetFileName(path) + ": " + ex.Message);
+                return null;
+            }
+        }
+
+        private void WarnAboutMp4Tracks(string folder)
+        {
+            if (_warnedAboutMp4)
+                return;
+
+            bool hasMp4 = File.Exists(Path.Combine(folder, "zcity_unconscious.mp4")) ||
+                          File.Exists(Path.Combine(folder, "zcity_pain.mp4")) ||
+                          File.Exists(Path.Combine(folder, "zcity_headhit.mp4"));
+            bool hasWav = _hasUnconsciousTrack || _hasPainTrack || _hasHeadHitTrack;
+            if (hasMp4 && !hasWav)
+            {
+                MainMod.Runtime?.Logger.Warning("MP4 trauma tracks are ignored for stability. Use WAV files named zcity_unconscious.wav, zcity_pain.wav and zcity_headhit.wav.");
+                _warnedAboutMp4 = true;
+            }
+        }
+
+        private static void StopAndMute(AudioSource? source)
+        {
+            if (source == null)
+                return;
+            source.Stop();
+            source.volume = 0f;
         }
 
         private static string GetAudioFolder()
@@ -206,6 +269,126 @@ namespace BonelabAdvancedHealth
             if (value < target)
                 return Mathf.Min(value + maxDelta, target);
             return Mathf.Max(value - maxDelta, target);
+        }
+
+        private static class WavAudioLoader
+        {
+            public static AudioClip Load(string path, string clipName)
+            {
+                byte[] bytes = File.ReadAllBytes(path);
+                if (bytes.Length < 44 || ReadFourCc(bytes, 0) != "RIFF" || ReadFourCc(bytes, 8) != "WAVE")
+                    throw new InvalidDataException("Not a RIFF/WAVE file.");
+
+                int offset = 12;
+                int fmtOffset = -1;
+                int fmtSize = 0;
+                int dataOffset = -1;
+                int dataSize = 0;
+                while (offset + 8 <= bytes.Length)
+                {
+                    string chunk = ReadFourCc(bytes, offset);
+                    int size = ReadInt32(bytes, offset + 4);
+                    int payload = offset + 8;
+                    if (size < 0 || payload + size > bytes.Length)
+                        break;
+
+                    if (chunk == "fmt ")
+                    {
+                        fmtOffset = payload;
+                        fmtSize = size;
+                    }
+                    else if (chunk == "data")
+                    {
+                        dataOffset = payload;
+                        dataSize = size;
+                    }
+
+                    offset = payload + size + (size & 1);
+                }
+
+                if (fmtOffset < 0 || dataOffset < 0 || fmtSize < 16)
+                    throw new InvalidDataException("Missing fmt or data chunk.");
+
+                ushort format = ReadUInt16(bytes, fmtOffset);
+                ushort channels = ReadUInt16(bytes, fmtOffset + 2);
+                int sampleRate = ReadInt32(bytes, fmtOffset + 4);
+                ushort bitsPerSample = ReadUInt16(bytes, fmtOffset + 14);
+                if (channels == 0 || sampleRate <= 0)
+                    throw new InvalidDataException("Invalid WAV stream format.");
+                if (format != 1 && format != 3)
+                    throw new InvalidDataException("Only PCM and IEEE float WAV files are supported.");
+                if (bitsPerSample != 8 && bitsPerSample != 16 && bitsPerSample != 24 && bitsPerSample != 32)
+                    throw new InvalidDataException("Unsupported bit depth: " + bitsPerSample);
+                if (format == 3 && bitsPerSample != 32)
+                    throw new InvalidDataException("Float WAV must be 32-bit.");
+
+                int bytesPerSample = bitsPerSample / 8;
+                int sampleCount = dataSize / bytesPerSample;
+                int frameCount = sampleCount / channels;
+                float[] samples = new float[sampleCount];
+                int cursor = dataOffset;
+                for (int i = 0; i < sampleCount; i++)
+                {
+                    samples[i] = ReadSample(bytes, cursor, format, bitsPerSample);
+                    cursor += bytesPerSample;
+                }
+
+                AudioClip clip = AudioClip.Create(clipName, frameCount, channels, sampleRate, false);
+                clip.SetData(samples, 0);
+                return clip;
+            }
+
+            private static float ReadSample(byte[] bytes, int offset, ushort format, ushort bits)
+            {
+                if (format == 3)
+                    return BitConverter.ToSingle(bytes, offset);
+
+                switch (bits)
+                {
+                    case 8:
+                        return (bytes[offset] - 128) / 128f;
+                    case 16:
+                        return ReadInt16(bytes, offset) / 32768f;
+                    case 24:
+                        int value = bytes[offset] | (bytes[offset + 1] << 8) | (bytes[offset + 2] << 16);
+                        if ((value & 0x800000) != 0)
+                            value |= unchecked((int)0xff000000);
+                        return value / 8388608f;
+                    case 32:
+                        return ReadInt32(bytes, offset) / 2147483648f;
+                    default:
+                        return 0f;
+                }
+            }
+
+            private static string ReadFourCc(byte[] bytes, int offset)
+            {
+                return new string(new[]
+                {
+                    (char)bytes[offset],
+                    (char)bytes[offset + 1],
+                    (char)bytes[offset + 2],
+                    (char)bytes[offset + 3]
+                });
+            }
+
+            private static ushort ReadUInt16(byte[] bytes, int offset)
+            {
+                return (ushort)(bytes[offset] | (bytes[offset + 1] << 8));
+            }
+
+            private static short ReadInt16(byte[] bytes, int offset)
+            {
+                return (short)(bytes[offset] | (bytes[offset + 1] << 8));
+            }
+
+            private static int ReadInt32(byte[] bytes, int offset)
+            {
+                return bytes[offset] |
+                       (bytes[offset + 1] << 8) |
+                       (bytes[offset + 2] << 16) |
+                       (bytes[offset + 3] << 24);
+            }
         }
     }
 }

@@ -35,7 +35,7 @@ namespace BonelabAdvancedHealth
 
         public static bool Enabled => _enabled?.Value ?? true;
         public static bool HudEnabled => _hudEnabled?.Value ?? true;
-        public static bool SpawnMedicalItems => _spawnMedicalItems?.Value ?? true;
+        public static bool SpawnMedicalItems => false;
         public static bool NpcEnabled => _npcEnabled?.Value ?? true;
         public static float BleedTickInterval => Clamp(_bleedTickInterval?.Value ?? 0.5f, 0.1f, 2.0f);
         public static float SystemTickInterval => Clamp(_systemTickInterval?.Value ?? 0.2f, 0.05f, 1.0f);
@@ -47,8 +47,17 @@ namespace BonelabAdvancedHealth
         public static float DeathBloodMl => Clamp(_deathBloodMl?.Value ?? 1800f, 800f, 4000f);
         public static float MedicalApplyDistance => Clamp(_medicalApplyDistance?.Value ?? 0.42f, 0.15f, 1.25f);
         public static float MedicalSpawnDistance => Clamp(_medicalSpawnDistance?.Value ?? 1.15f, 0.4f, 3.0f);
-        public static bool BloodFxEnabled => _bloodFxEnabled?.Value ?? true;
-        public static float BloodFxDensity => Clamp(_bloodFxDensity?.Value ?? 1.0f, 0.15f, 2.5f);
+        public static bool BloodFxEnabled => (_bloodFxEnabled?.Value ?? true) && SettingsMenu.BloodEnabled;
+        public static float BloodFxDensity => Clamp((_bloodFxDensity?.Value ?? 1.0f) * SettingsMenu.BloodIntensity, 0.0f, 3.5f);
+        public static bool UnconsciousEffectsEnabled => SettingsMenu.UnconsciousEffectsEnabled;
+        public static bool PainEffectsEnabled => SettingsMenu.PainEffectsEnabled;
+        public static bool OrganSystemEnabled => SettingsMenu.OrganSystemEnabled;
+        public static bool RealisticAudioEnabled => SettingsMenu.RealisticAudioEnabled;
+        public static float FractureSeverity => SettingsMenu.FractureSeverity;
+        public static bool DebugMode => SettingsMenu.DebugMode;
+        public static int HudMode => SettingsMenu.HudMode;
+        public static bool KnifePenetrationEnabled => SettingsMenu.KnifePenetrationEnabled;
+        public static bool NativeBloodEnabled => SettingsMenu.NativeBloodEnabled;
 
         public static readonly float[] LimbMaxHp =
         {
@@ -85,7 +94,7 @@ namespace BonelabAdvancedHealth
             _category = MelonPreferences.CreateCategory("BonelabAdvancedHealth", "BONELAB Advanced Health");
             _enabled = _category.CreateEntry("Enabled", true, "Enable advanced health simulation");
             _hudEnabled = _category.CreateEntry("HudEnabled", true, "Enable VR health HUD");
-            _spawnMedicalItems = _category.CreateEntry("SpawnMedicalItems", true, "Spawn runtime medical items near the player");
+            _spawnMedicalItems = _category.CreateEntry("SpawnMedicalItems", false, "Spawn runtime medical items near the player");
             _npcEnabled = _category.CreateEntry("NpcEnabled", true, "Enable advanced health simulation for NPCs");
             _bleedTickInterval = _category.CreateEntry("BleedTickInterval", 0.5f, "Seconds between blood-loss calculations");
             _systemTickInterval = _category.CreateEntry("SystemTickInterval", 0.2f, "Seconds between main health system updates");
@@ -99,6 +108,7 @@ namespace BonelabAdvancedHealth
             _medicalSpawnDistance = _category.CreateEntry("MedicalSpawnDistance", 1.15f, "Distance in front of player for spawned medical items");
             _bloodFxEnabled = _category.CreateEntry("BloodFxEnabled", true, "Enable pooled blood decals and drip particles");
             _bloodFxDensity = _category.CreateEntry("BloodFxDensity", 1.0f, "Blood FX density multiplier");
+            SettingsMenu.Initialize();
             MelonPreferences.Save();
         }
 

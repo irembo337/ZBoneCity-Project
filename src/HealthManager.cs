@@ -21,6 +21,7 @@ namespace BonelabAdvancedHealth
         private int _lastSourceId;
         private int _lastAttackOrder;
         private BodyPart _lastPart;
+        private AdvancedDamageType _lastDamageType;
         private float _morphineSeconds;
         private float _morphineAwarenessPenalty;
         private int _morphineDoseCount;
@@ -40,8 +41,10 @@ namespace BonelabAdvancedHealth
         public LungDamageSystem Lungs { get; }
         public BrainTraumaSystem Brain { get; }
         public AudioTraumaSystem AudioTrauma { get; }
-        public float Pain { get; private set; }
-        public float PainNormalized => Config.Clamp(Pain / 100f, 0f, 1f);
+        public PainSystem PainSystem { get; }
+        public KnifePenetrationSystem KnifePenetration { get; }
+        public float Pain => PainSystem.TotalPain;
+        public float PainNormalized => PainSystem.PainNormalized;
         public float AwarenessPenalty => Config.Clamp(_morphineAwarenessPenalty + Brain.DisorientationNormalized * 0.35f + Lungs.OxygenStress * 0.45f, 0f, 1f);
         public float AdrenalineNormalized => _adrenalineSeconds > 0f ? Config.Clamp(_adrenalineSeconds / 45f, 0f, 1f) : 0f;
         public float PulseModifier => Organs.HeartbeatStrength;
@@ -79,6 +82,8 @@ namespace BonelabAdvancedHealth
             Lungs = new LungDamageSystem(this);
             Brain = new BrainTraumaSystem(this);
             AudioTrauma = new AudioTraumaSystem(this);
+            PainSystem = new PainSystem(this);
+            KnifePenetration = new KnifePenetrationSystem(this);
             Bleeding.BloodChanged += OnBleedingChanged;
             LastDeathCause = DeathCause.Trauma;
         }
@@ -100,12 +105,12 @@ namespace BonelabAdvancedHealth
             _lastSourceId = 0;
             _lastAttackOrder = 0;
             _lastPart = BodyPart.Torso;
+            _lastDamageType = AdvancedDamageType.Blunt;
             _morphineSeconds = 0f;
             _morphineAwarenessPenalty = 0f;
             _morphineDoseCount = 0;
             _adrenalineSeconds = 0f;
             _adrenalineCrashSeconds = 0f;
-            Pain = 0f;
             TotalTraumaNormalized = 0f;
             LastDeathCause = DeathCause.Trauma;
 
@@ -120,6 +125,8 @@ namespace BonelabAdvancedHealth
             Organs.Reset();
             Lungs.Reset();
             Brain.Reset();
+            PainSystem.Reset();
+            KnifePenetration.Reset();
             AudioTrauma.Reset();
             Fractures.Reset();
             Consciousness.Reset();
@@ -135,6 +142,7 @@ namespace BonelabAdvancedHealth
             _lastSourceId = info.SourceId;
             _lastAttackOrder = info.AttackOrder;
             _lastPart = info.BodyPart;
+            _lastDamageType = info.DamageType;
 
             LimbHealth limb = GetLimb(info.BodyPart);
             float damageApplied = limb.ApplyDamage(info, Random);
@@ -147,7 +155,7 @@ namespace BonelabAdvancedHealth
                 AddPain(boneFeedback.Pain);
             BleedSeverity severity = DamageProcessor.GetBleedSeverity(info, limb);
             Bleeding.AddBleed(info, limb, severity);
-            OrganDamageFeedback organFeedback = Organs.ApplyDamage(info);
+            OrganDamageFeedback organFeedback = Config.OrganSystemEnabled ? Organs.ApplyDamage(info) : OrganDamageFeedback.None;
             if (organFeedback.BleedSeverity != BleedSeverity.None)
                 Bleeding.AddBleed(info, limb, organFeedback.BleedSeverity, organFeedback.BleedMultiplier, 1.5f, organFeedback.WoundSeverity);
             if (organFeedback.Pain > 0f)
@@ -156,6 +164,7 @@ namespace BonelabAdvancedHealth
                 Consciousness.SetUnconscious(organFeedback.CardiacArrest ? 12f : 5f);
             Lungs.ApplyDamage(info, organFeedback);
             Brain.ApplyDamage(info, organFeedback);
+            KnifePenetration.ApplyDamage(info, organFeedback);
             AudioTrauma.OnDamage(info, organFeedback);
             if (Kind == HealthOwnerKind.Player)
                 MainMod.Runtime?.Hud.OnDamageVisual(info, organFeedback);
@@ -176,34 +185,33 @@ namespace BonelabAdvancedHealth
             if (_morphineSeconds > 0f)
             {
                 _morphineSeconds = Math.Max(0f, _morphineSeconds - deltaTime);
-                Pain = Math.Max(0f, Pain - deltaTime * 4.8f);
                 _morphineAwarenessPenalty = Config.Clamp(_morphineAwarenessPenalty + deltaTime * 0.006f * Math.Max(1, _morphineDoseCount), 0f, 0.45f);
             }
             else
             {
-                Pain = Math.Max(0f, Pain - deltaTime * 1.1f);
                 _morphineAwarenessPenalty = Math.Max(0f, _morphineAwarenessPenalty - deltaTime * 0.01f);
             }
 
             if (_adrenalineSeconds > 0f)
             {
                 _adrenalineSeconds = Math.Max(0f, _adrenalineSeconds - deltaTime);
-                Pain = Math.Max(0f, Pain - deltaTime * 2.6f);
                 if (_adrenalineSeconds <= 0f)
                     _adrenalineCrashSeconds = 12f;
             }
             else if (_adrenalineCrashSeconds > 0f)
             {
                 _adrenalineCrashSeconds = Math.Max(0f, _adrenalineCrashSeconds - deltaTime);
-                AddPain(deltaTime * 4.0f);
             }
 
             UpdateTourniquetDamage(deltaTime);
 
             Bleeding.Update(deltaTime);
-            Organs.Update(deltaTime);
+            if (Config.OrganSystemEnabled)
+                Organs.Update(deltaTime);
             Lungs.Update(deltaTime);
             Brain.Update(deltaTime);
+            PainSystem.Update(deltaTime, _morphineSeconds > 0f, _adrenalineSeconds > 0f, _adrenalineCrashSeconds > 0f, Organs.OrganPainModifier);
+            KnifePenetration.Update(deltaTime);
             Fractures.Update(deltaTime);
             Consciousness.Update(deltaTime);
             AudioTrauma.Update(deltaTime);
@@ -217,13 +225,13 @@ namespace BonelabAdvancedHealth
 
             float morphineReduction = _morphineSeconds > 0f ? 0.45f : 1f;
             float adrenalineReduction = _adrenalineSeconds > 0f ? 0.35f : 1f;
-            Pain = Config.Clamp(Pain + amount * 0.32f * morphineReduction * adrenalineReduction * Organs.OrganPainModifier, 0f, 135f);
+            PainSystem.AddPain(amount * morphineReduction * adrenalineReduction * Organs.OrganPainModifier, _lastPart, _lastDamageType);
         }
 
         public void ReducePain(float amount, float morphineSeconds)
         {
             if (amount > 0f)
-                Pain = Math.Max(0f, Pain - amount);
+                PainSystem.ReducePain(amount);
             if (morphineSeconds > 0f)
             {
                 _morphineSeconds = Math.Max(_morphineSeconds, morphineSeconds);
