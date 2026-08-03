@@ -1,0 +1,15 @@
+{
+  "name": "BonelabAdvancedHealth",
+  "displayName": "BONELAB Advanced Health System",
+  "version": "1.0.0",
+  "game": "BONELAB",
+  "loader": "MelonLoader",
+  "requires": [
+    "MelonLoader 0.7.x or newer",
+    "BoneLib 3.x"
+  ],
+  "install": {
+    "dll": "Mods/BonelabAdvancedHealth.dll",
+    "optionalAudioFolder": "UserData/BonelabAdvancedHealth/Audio"
+  }
+}

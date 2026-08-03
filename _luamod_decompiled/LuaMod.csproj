@@ -1,0 +1,39 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <AssemblyName>LuaMod</AssemblyName>
+    <GenerateAssemblyInfo>False</GenerateAssemblyInfo>
+    <TargetFramework>netcoreapp6.0</TargetFramework>
+  </PropertyGroup>
+  <PropertyGroup>
+    <LangVersion>11.0</LangVersion>
+    <AllowUnsafeBlocks>True</AllowUnsafeBlocks>
+  </PropertyGroup>
+  <PropertyGroup />
+  <ItemGroup />
+  <ItemGroup>
+    <Reference Include="MelonLoader" />
+    <Reference Include="MoonSharp.Interpreter" />
+    <Reference Include="Assembly-CSharp" />
+    <Reference Include="UnityEngine.ParticleSystemModule" />
+    <Reference Include="UnityEngine.CoreModule" />
+    <Reference Include="UnityEngine.PhysicsModule" />
+    <Reference Include="Il2CppSLZ.Marrow" />
+    <Reference Include="0Harmony" />
+    <Reference Include="UnityEngine.AudioModule" />
+    <Reference Include="BoneLib" />
+    <Reference Include="Il2CppInterop.Runtime" />
+    <Reference Include="Il2CppUniTask" />
+    <Reference Include="UnityEngine.AIModule" />
+    <Reference Include="UnityEngine.TextRenderingModule" />
+    <Reference Include="UnityEngine.IMGUIModule" />
+    <Reference Include="FieldInjector" />
+    <Reference Include="Il2Cppmscorlib" />
+    <Reference Include="UnityEngine.UIModule" />
+    <Reference Include="UnityEngine.AnimationModule" />
+    <Reference Include="UnityEngine.TerrainModule" />
+    <Reference Include="UnityEngine.VideoModule" />
+    <Reference Include="Unity.TextMeshPro" />
+    <Reference Include="Il2CppSLZ.Marrow.VoidLogic.Core" />
+    <Reference Include="UnityEngine.InputLegacyModule" />
+  </ItemGroup>
+</Project>

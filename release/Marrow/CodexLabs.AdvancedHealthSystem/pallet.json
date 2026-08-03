@@ -1,0 +1,38 @@
+{
+  "version": 2,
+  "root": {
+    "ref": "1",
+    "type": "pallet#0"
+  },
+  "objects": {
+    "1": {
+      "barcode": "CodexLabs.AdvancedHealthSystem",
+      "title": "Advanced Health System",
+      "description": "BONELAB Advanced Health System compatibility pallet. The official Marrow pallet lets BONELAB/mod.io recognize this package, while the gameplay runtime is included as a PC MelonLoader payload.",
+      "unlockable": false,
+      "redacted": false,
+      "author": "CodexLabs",
+      "version": "1.0.0",
+      "sdkVersion": "1.2.0",
+      "internal": false,
+      "crates": [],
+      "dataCards": [],
+      "tags": [
+        "CodeMod",
+        "Gameplay",
+        "Health",
+        "PC"
+      ],
+      "changelogs": [
+        {
+          "version": "1.0.0",
+          "title": "Marrow SDK packaging compatibility",
+          "text": "Converted the mod.io package to a Marrow SDK pallet layout with pallet.json, catalog, hash, and platform payload folders."
+        }
+      ],
+      "isa": {
+        "type": "pallet#0"
+      }
+    }
+  }
+}

@@ -1,0 +1,938 @@
+{
+  "version": 2,
+  "root": {
+    "ref": "1",
+    "type": "pallet#0"
+  },
+  "objects": {
+    "1": {
+      "barcode": "naxock.ZBCmeds",
+      "title": "ZBCmeds",
+      "description": "",
+      "unlockable": false,
+      "redacted": false,
+      "author": "naxock",
+      "version": "0.0.0",
+      "sdkVersion": "1.2.0",
+      "internal": false,
+      "crates": [
+        {
+          "ref": "2",
+          "type": "crate-level#0"
+        },
+        {
+          "ref": "3",
+          "type": "crate-spawnable#0"
+        },
+        {
+          "ref": "4",
+          "type": "crate-spawnable#0"
+        },
+        {
+          "ref": "5",
+          "type": "crate-spawnable#0"
+        },
+        {
+          "ref": "6",
+          "type": "crate-spawnable#0"
+        },
+        {
+          "ref": "7",
+          "type": "crate-spawnable#0"
+        },
+        {
+          "ref": "8",
+          "type": "crate-spawnable#0"
+        },
+        {
+          "ref": "9",
+          "type": "crate-spawnable#0"
+        },
+        {
+          "ref": "10",
+          "type": "crate-spawnable#0"
+        },
+        {
+          "ref": "11",
+          "type": "crate-spawnable#0"
+        },
+        {
+          "ref": "12",
+          "type": "crate-spawnable#0"
+        },
+        {
+          "ref": "13",
+          "type": "crate-spawnable#0"
+        },
+        {
+          "ref": "14",
+          "type": "crate-spawnable#0"
+        },
+        {
+          "ref": "15",
+          "type": "crate-spawnable#0"
+        },
+        {
+          "ref": "16",
+          "type": "crate-spawnable#0"
+        },
+        {
+          "ref": "17",
+          "type": "crate-spawnable#0"
+        },
+        {
+          "ref": "18",
+          "type": "crate-spawnable#0"
+        },
+        {
+          "ref": "19",
+          "type": "crate-spawnable#0"
+        },
+        {
+          "ref": "20",
+          "type": "crate-spawnable#0"
+        },
+        {
+          "ref": "21",
+          "type": "crate-spawnable#0"
+        },
+        {
+          "ref": "22",
+          "type": "crate-spawnable#0"
+        },
+        {
+          "ref": "23",
+          "type": "crate-spawnable#0"
+        },
+        {
+          "ref": "24",
+          "type": "crate-spawnable#0"
+        },
+        {
+          "ref": "25",
+          "type": "crate-spawnable#0"
+        },
+        {
+          "ref": "26",
+          "type": "crate-level#0"
+        }
+      ],
+      "dataCards": [],
+      "tags": [],
+      "changelogs": [],
+      "isa": {
+        "type": "pallet#0"
+      }
+    },
+    "2": {
+      "barcode": "naxock.ZBCmeds.Level.ZBCmedstest",
+      "title": "ZBC meds test",
+      "description": "",
+      "unlockable": false,
+      "redacted": false,
+      "packedAssets": [],
+      "mainAsset": "578363a52e603cd41a55de4e6e12bd7e",
+      "tags": [],
+      "multiscene": false,
+      "isa": {
+        "type": "crate-level#0"
+      }
+    },
+    "3": {
+      "barcode": "naxock.ZBCmeds.Spawnable.AdrenalineInjector",
+      "title": "Adrenaline Injector",
+      "description": "Treats pain.",
+      "unlockable": false,
+      "redacted": false,
+      "packedAssets": [
+        {
+          "title": "PreviewMesh",
+          "guid": "dff6b0dc094704c48b043ee718943d20"
+        }
+      ],
+      "mainAsset": "a769c66c9a619ac47927352c451507e7",
+      "tags": [
+        "ZBoneCity",
+        "Medical",
+        "Adrenaline"
+      ],
+      "colliderBounds": {
+        "center": {
+          "x": 7.450581E-09,
+          "y": 0.0,
+          "z": -2.32830644E-08
+        },
+        "extents": {
+          "x": 0.008972555,
+          "y": 0.0756,
+          "z": 0.0115591809
+        }
+      },
+      "isa": {
+        "type": "crate-spawnable#0"
+      }
+    },
+    "4": {
+      "barcode": "naxock.ZBCmeds.Spawnable.AluminumSplint",
+      "title": "Aluminum Splint",
+      "description": "Treats fractures, pain.",
+      "unlockable": false,
+      "redacted": false,
+      "packedAssets": [
+        {
+          "title": "PreviewMesh",
+          "guid": "145c8793cbca47e4a89b97b928ff0749"
+        }
+      ],
+      "mainAsset": "092b9b45e455b4942bf1ed27beb57970",
+      "tags": [
+        "ZBoneCity",
+        "Medical",
+        "Splint"
+      ],
+      "colliderBounds": {
+        "center": {
+          "x": -0.028228201,
+          "y": 0.0004955679,
+          "z": 0.002345493
+        },
+        "extents": {
+          "x": 0.0893736854,
+          "y": 0.161999986,
+          "z": 0.06019845
+        }
+      },
+      "isa": {
+        "type": "crate-spawnable#0"
+      }
+    },
+    "5": {
+      "barcode": "naxock.ZBCmeds.Spawnable.AnalginPainkillers",
+      "title": "Analgin Painkillers",
+      "description": "Treats pain.",
+      "unlockable": false,
+      "redacted": false,
+      "packedAssets": [
+        {
+          "title": "PreviewMesh",
+          "guid": "d8b20f1ab4fc94f438729f0ec81d90de"
+        }
+      ],
+      "mainAsset": "78d45cabee7dc684ab68d04e5fa620a5",
+      "tags": [
+        "ZBoneCity",
+        "Medical",
+        "Painkillers"
+      ],
+      "colliderBounds": {
+        "center": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "extents": {
+          "x": 0.0432000048,
+          "y": 0.0018894166,
+          "z": 0.0201289188
+        }
+      },
+      "isa": {
+        "type": "crate-spawnable#0"
+      }
+    },
+    "6": {
+      "barcode": "naxock.ZBCmeds.Spawnable.AutoMedkit",
+      "title": "Auto Medkit",
+      "description": "Treats minor bleeding, moderate bleeding, severe bleeding, pain, health.",
+      "unlockable": false,
+      "redacted": false,
+      "packedAssets": [
+        {
+          "title": "PreviewMesh",
+          "guid": "608d3314ae82f92438daabf0e17b71fb"
+        }
+      ],
+      "mainAsset": "3ef827d455ea2de4e89d544b37bae8e1",
+      "tags": [
+        "ZBoneCity",
+        "Medical",
+        "Medkit"
+      ],
+      "colliderBounds": {
+        "center": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "extents": {
+          "x": 0.1188,
+          "y": 0.08105536,
+          "z": 0.04593825
+        }
+      },
+      "isa": {
+        "type": "crate-spawnable#0"
+      }
+    },
+    "7": {
+      "barcode": "naxock.ZBCmeds.Spawnable.Bandage",
+      "title": "Bandage",
+      "description": "Treats minor bleeding, moderate bleeding.",
+      "unlockable": false,
+      "redacted": false,
+      "packedAssets": [
+        {
+          "title": "PreviewMesh",
+          "guid": "df28cef224c7f774191622f545216f0c"
+        }
+      ],
+      "mainAsset": "90713f922b23bab43aa2055fd4f09ea7",
+      "tags": [
+        "ZBoneCity",
+        "Medical",
+        "MilitaryBandage"
+      ],
+      "colliderBounds": {
+        "center": {
+          "x": 1.90064311E-05,
+          "y": -1.49011612E-08,
+          "z": -2.08457932E-05
+        },
+        "extents": {
+          "x": 0.0647999942,
+          "y": 0.0212930143,
+          "z": 0.0108415559
+        }
+      },
+      "isa": {
+        "type": "crate-spawnable#0"
+      }
+    },
+    "8": {
+      "barcode": "naxock.ZBCmeds.Spawnable.MilitaryBandage",
+      "title": "Military Bandage",
+      "description": "Treats minor bleeding, moderate bleeding.",
+      "unlockable": false,
+      "redacted": false,
+      "packedAssets": [
+        {
+          "title": "PreviewMesh",
+          "guid": "a271387bab449ae4094e40d5bdace18d"
+        }
+      ],
+      "mainAsset": "8bc45c9ad95f4bb40b5bf3a5b0d13d6a",
+      "tags": [
+        "ZBoneCity",
+        "Medical",
+        "MilitaryBandage"
+      ],
+      "colliderBounds": {
+        "center": {
+          "x": -0.0009799153,
+          "y": 0.0005171709,
+          "z": -0.000111466274
+        },
+        "extents": {
+          "x": 0.07020001,
+          "y": 0.0371780135,
+          "z": 0.011460063
+        }
+      },
+      "isa": {
+        "type": "crate-spawnable#0"
+      }
+    },
+    "9": {
+      "barcode": "naxock.ZBCmeds.Spawnable.MedicalBandage",
+      "title": "Medical Bandage",
+      "description": "Treats minor bleeding, moderate bleeding.",
+      "unlockable": false,
+      "redacted": false,
+      "packedAssets": [
+        {
+          "title": "PreviewMesh",
+          "guid": "e47b2adf19f3e1f449348b88bcbc8400"
+        }
+      ],
+      "mainAsset": "8a5cbc39e9b965e4b9e219ac252bb17e",
+      "tags": [
+        "ZBoneCity",
+        "Medical",
+        "MilitaryBandage"
+      ],
+      "colliderBounds": {
+        "center": {
+          "x": 0.000434160233,
+          "y": 0.000563126057,
+          "z": -0.000170147046
+        },
+        "extents": {
+          "x": 0.0647999942,
+          "y": 0.0224397052,
+          "z": 0.0102465563
+        }
+      },
+      "isa": {
+        "type": "crate-spawnable#0"
+      }
+    },
+    "10": {
+      "barcode": "naxock.ZBCmeds.Spawnable.SurgicalKit",
+      "title": "Surgical Kit",
+      "description": "Treats fractures, pain, health.",
+      "unlockable": false,
+      "redacted": false,
+      "packedAssets": [
+        {
+          "title": "PreviewMesh",
+          "guid": "c076d6914bf518b4e9b79f4338e21460"
+        }
+      ],
+      "mainAsset": "a58fb1ff690cbf34d80bb0422b09a1f1",
+      "tags": [
+        "ZBoneCity",
+        "Medical",
+        "SurvivalFirstAidRollupKit"
+      ],
+      "colliderBounds": {
+        "center": {
+          "x": -0.000806450844,
+          "y": -0.006462194,
+          "z": 0.005317636
+        },
+        "extents": {
+          "x": 0.1512,
+          "y": 0.09464768,
+          "z": 0.04024931
+        }
+      },
+      "isa": {
+        "type": "crate-spawnable#0"
+      }
+    },
+    "11": {
+      "barcode": "naxock.ZBCmeds.Spawnable.ETGStimulator",
+      "title": "ETG Stimulator",
+      "description": "Treats pain, health.",
+      "unlockable": false,
+      "redacted": false,
+      "packedAssets": [
+        {
+          "title": "PreviewMesh",
+          "guid": "62b85e470f2f90a4aa36ded84b406612"
+        }
+      ],
+      "mainAsset": "c1f6ce1abba36b049971528d7842e61f",
+      "tags": [
+        "ZBoneCity",
+        "Medical",
+        "Adrenaline"
+      ],
+      "colliderBounds": {
+        "center": {
+          "x": 7.450581E-09,
+          "y": 0.0,
+          "z": -2.142042E-08
+        },
+        "extents": {
+          "x": 0.008331659,
+          "y": 0.0702,
+          "z": 0.0107335262
+        }
+      },
+      "isa": {
+        "type": "crate-spawnable#0"
+      }
+    },
+    "12": {
+      "barcode": "naxock.ZBCmeds.Spawnable.GoldenStarBalm",
+      "title": "Golden Star Balm",
+      "description": "Treats pain.",
+      "unlockable": false,
+      "redacted": false,
+      "packedAssets": [
+        {
+          "title": "PreviewMesh",
+          "guid": "a35bbe69282149240a7ed2ceb8bff5b4"
+        }
+      ],
+      "mainAsset": "a0a5cd84525975c458dcc501f936c4fd",
+      "tags": [
+        "ZBoneCity",
+        "Medical",
+        "Painkillers"
+      ],
+      "colliderBounds": {
+        "center": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "extents": {
+          "x": 0.03752965,
+          "y": 0.010330623,
+          "z": 0.0378000028
+        }
+      },
+      "isa": {
+        "type": "crate-spawnable#0"
+      }
+    },
+    "13": {
+      "barcode": "naxock.ZBCmeds.Spawnable.GrizzlyMedkit",
+      "title": "Grizzly Medkit",
+      "description": "Treats minor bleeding, moderate bleeding, severe bleeding, pain, health.",
+      "unlockable": false,
+      "redacted": false,
+      "packedAssets": [
+        {
+          "title": "PreviewMesh",
+          "guid": "f5973cbf8a1b28c43816d2708763ea0b"
+        }
+      ],
+      "mainAsset": "85ab1fbc78a025a448581aff63e2105d",
+      "tags": [
+        "ZBoneCity",
+        "Medical",
+        "GrizzlyMedkit"
+      ],
+      "colliderBounds": {
+        "center": {
+          "x": -5.96046448E-08,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "extents": {
+          "x": 0.194400012,
+          "y": 0.130214036,
+          "z": 0.101898372
+        }
+      },
+      "isa": {
+        "type": "crate-spawnable#0"
+      }
+    },
+    "14": {
+      "barcode": "naxock.ZBCmeds.Spawnable.Ibuprofen",
+      "title": "Ibuprofen",
+      "description": "Treats pain.",
+      "unlockable": false,
+      "redacted": false,
+      "packedAssets": [
+        {
+          "title": "PreviewMesh",
+          "guid": "38a5fb6b5da48e545a98379e7f2c1ba0"
+        }
+      ],
+      "mainAsset": "57b68e4757a16ce469815910bcca9721",
+      "tags": [
+        "ZBoneCity",
+        "Medical",
+        "Painkillers"
+      ],
+      "colliderBounds": {
+        "center": {
+          "x": -3.7252903E-09,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "extents": {
+          "x": 0.0191992279,
+          "y": 0.04320001,
+          "z": 0.01904564
+        }
+      },
+      "isa": {
+        "type": "crate-spawnable#0"
+      }
+    },
+    "15": {
+      "barcode": "naxock.ZBCmeds.Spawnable.IFAK",
+      "title": "IFAK",
+      "description": "Treats minor bleeding, moderate bleeding, health.",
+      "unlockable": false,
+      "redacted": false,
+      "packedAssets": [
+        {
+          "title": "PreviewMesh",
+          "guid": "a1f7700473bfb4747a7039e62f599540"
+        }
+      ],
+      "mainAsset": "8404e275ee194dd448aa5fdd6267507b",
+      "tags": [
+        "ZBoneCity",
+        "Medical",
+        "IFAK"
+      ],
+      "colliderBounds": {
+        "center": {
+          "x": 5.21540642E-08,
+          "y": 0.00269979984,
+          "z": -0.001342874
+        },
+        "extents": {
+          "x": 0.0891381055,
+          "y": 0.107999995,
+          "z": 0.04794736
+        }
+      },
+      "isa": {
+        "type": "crate-spawnable#0"
+      }
+    },
+    "16": {
+      "barcode": "naxock.ZBCmeds.Spawnable.Medkit",
+      "title": "Medkit",
+      "description": "Treats minor bleeding, moderate bleeding, severe bleeding, pain, health.",
+      "unlockable": false,
+      "redacted": false,
+      "packedAssets": [
+        {
+          "title": "PreviewMesh",
+          "guid": "b41daa12abf7e0a45bfebaa6bbdf9f86"
+        }
+      ],
+      "mainAsset": "49ac37ee4cd14d04dbe91c3728016111",
+      "tags": [
+        "ZBoneCity",
+        "Medical",
+        "Medkit"
+      ],
+      "colliderBounds": {
+        "center": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": -3.91155481E-08
+        },
+        "extents": {
+          "x": 0.119979665,
+          "y": 0.1296,
+          "z": 0.0184977856
+        }
+      },
+      "isa": {
+        "type": "crate-spawnable#0"
+      }
+    },
+    "17": {
+      "barcode": "naxock.ZBCmeds.Spawnable.MorphineInjector",
+      "title": "Morphine Injector",
+      "description": "Treats pain.",
+      "unlockable": false,
+      "redacted": false,
+      "packedAssets": [
+        {
+          "title": "PreviewMesh",
+          "guid": "91ea5d5777f5cc84e90d65402c9abf7b"
+        }
+      ],
+      "mainAsset": "9d36d30124210894f9b3f56d65623add",
+      "tags": [
+        "ZBoneCity",
+        "Medical",
+        "Morphine"
+      ],
+      "colliderBounds": {
+        "center": {
+          "x": 7.450581E-09,
+          "y": 0.0,
+          "z": -2.142042E-08
+        },
+        "extents": {
+          "x": 0.008331659,
+          "y": 0.0702,
+          "z": 0.0107335262
+        }
+      },
+      "isa": {
+        "type": "crate-spawnable#0"
+      }
+    },
+    "18": {
+      "barcode": "naxock.ZBCmeds.Spawnable.Propital",
+      "title": "Propital",
+      "description": "Treats pain, health.",
+      "unlockable": false,
+      "redacted": false,
+      "packedAssets": [
+        {
+          "title": "PreviewMesh",
+          "guid": "4a85a7ea8fd099b4a979910c3f602568"
+        }
+      ],
+      "mainAsset": "8d8088613d0a1dc408da0c3f88428e85",
+      "tags": [
+        "ZBoneCity",
+        "Medical",
+        "Morphine"
+      ],
+      "colliderBounds": {
+        "center": {
+          "x": 7.450581E-09,
+          "y": 0.0,
+          "z": -2.142042E-08
+        },
+        "extents": {
+          "x": 0.008331659,
+          "y": 0.0702,
+          "z": 0.0107335262
+        }
+      },
+      "isa": {
+        "type": "crate-spawnable#0"
+      }
+    },
+    "19": {
+      "barcode": "naxock.ZBCmeds.Spawnable.SalewaFirstAidKit",
+      "title": "Salewa First Aid Kit",
+      "description": "Treats minor bleeding, moderate bleeding, severe bleeding, pain, health.",
+      "unlockable": false,
+      "redacted": false,
+      "packedAssets": [
+        {
+          "title": "PreviewMesh",
+          "guid": "77e9c5779dbc950489ad6b3a9371417e"
+        }
+      ],
+      "mainAsset": "ed396e89b83371d48b6cda2aad7eb9a8",
+      "tags": [
+        "ZBoneCity",
+        "Medical",
+        "SalewaFirstAidKit"
+      ],
+      "colliderBounds": {
+        "center": {
+          "x": 0.00264688022,
+          "y": -0.005851172,
+          "z": -0.003740985
+        },
+        "extents": {
+          "x": 0.06257648,
+          "y": 0.118800007,
+          "z": 0.0351742879
+        }
+      },
+      "isa": {
+        "type": "crate-spawnable#0"
+      }
+    },
+    "20": {
+      "barcode": "naxock.ZBCmeds.Spawnable.SJ1Stimulator",
+      "title": "SJ1 Stimulator",
+      "description": "Treats pain.",
+      "unlockable": false,
+      "redacted": false,
+      "packedAssets": [
+        {
+          "title": "PreviewMesh",
+          "guid": "74c1bf5656024cf4bb75ca3a7c342bd1"
+        }
+      ],
+      "mainAsset": "d2760391938a3c44384a733592e90acf",
+      "tags": [
+        "ZBoneCity",
+        "Medical",
+        "SJ1Stimulator"
+      ],
+      "colliderBounds": {
+        "center": {
+          "x": 6.519258E-09,
+          "y": 0.0,
+          "z": -2.04890966E-08
+        },
+        "extents": {
+          "x": 0.0081,
+          "y": 0.0648,
+          "z": 0.009907871
+        }
+      },
+      "isa": {
+        "type": "crate-spawnable#0"
+      }
+    },
+    "21": {
+      "barcode": "naxock.ZBCmeds.Spawnable.SJ6Stimulator",
+      "title": "SJ6 Stimulator",
+      "description": "Treats pain.",
+      "unlockable": false,
+      "redacted": false,
+      "packedAssets": [
+        {
+          "title": "PreviewMesh",
+          "guid": "99515070e00ca6645aab11f2ecaa26e2"
+        }
+      ],
+      "mainAsset": "ce946036634d0a640b8600aba5a41820",
+      "tags": [
+        "ZBoneCity",
+        "Medical",
+        "SJ1Stimulator"
+      ],
+      "colliderBounds": {
+        "center": {
+          "x": 7.450581E-09,
+          "y": 0.0,
+          "z": -2.142042E-08
+        },
+        "extents": {
+          "x": 0.008331659,
+          "y": 0.0702,
+          "z": 0.0107335262
+        }
+      },
+      "isa": {
+        "type": "crate-spawnable#0"
+      }
+    },
+    "22": {
+      "barcode": "naxock.ZBCmeds.Spawnable.SurvivalFirstAidRollupKit",
+      "title": "Survival First Aid Rollup Kit",
+      "description": "Treats fractures, pain.",
+      "unlockable": false,
+      "redacted": false,
+      "packedAssets": [
+        {
+          "title": "PreviewMesh",
+          "guid": "dbd0df8371ca2ec44ac7e7c4d8ff506b"
+        }
+      ],
+      "mainAsset": "4bcfa29137b13204fb259537aacb3d73",
+      "tags": [
+        "ZBoneCity",
+        "Medical",
+        "SurvivalFirstAidRollupKit"
+      ],
+      "colliderBounds": {
+        "center": {
+          "x": -0.00498837233,
+          "y": 0.0140073,
+          "z": -0.0008853227
+        },
+        "extents": {
+          "x": 0.1836,
+          "y": 0.08453036,
+          "z": 0.04763551
+        }
+      },
+      "isa": {
+        "type": "crate-spawnable#0"
+      }
+    },
+    "23": {
+      "barcode": "naxock.ZBCmeds.Spawnable.Vaseline",
+      "title": "Vaseline",
+      "description": "Treats pain.",
+      "unlockable": false,
+      "redacted": false,
+      "packedAssets": [
+        {
+          "title": "PreviewMesh",
+          "guid": "69311f9c53af4a545b8b93cf45417237"
+        }
+      ],
+      "mainAsset": "ca592c88b392b97459ff7d7070d7d3e6",
+      "tags": [
+        "ZBoneCity",
+        "Medical",
+        "Painkillers"
+      ],
+      "colliderBounds": {
+        "center": {
+          "x": -1.39251351E-05,
+          "y": 0.0002575135,
+          "z": 2.16662884E-05
+        },
+        "extents": {
+          "x": 0.0432,
+          "y": 0.007837592,
+          "z": 0.0431491435
+        }
+      },
+      "isa": {
+        "type": "crate-spawnable#0"
+      }
+    },
+    "24": {
+      "barcode": "naxock.ZBCmeds.Spawnable.ZagustinHemostatic",
+      "title": "Zagustin Hemostatic",
+      "description": "Treats moderate bleeding, severe bleeding, pain.",
+      "unlockable": false,
+      "redacted": false,
+      "packedAssets": [
+        {
+          "title": "PreviewMesh",
+          "guid": "df0c891ce2a64874d82d950848676a91"
+        }
+      ],
+      "mainAsset": "0a134294c3303a0439954b564ebaf4e9",
+      "tags": [
+        "ZBoneCity",
+        "Medical",
+        "Tourniquet"
+      ],
+      "colliderBounds": {
+        "center": {
+          "x": 7.450581E-09,
+          "y": 0.0,
+          "z": -2.142042E-08
+        },
+        "extents": {
+          "x": 0.008331659,
+          "y": 0.0702,
+          "z": 0.0107335262
+        }
+      },
+      "isa": {
+        "type": "crate-spawnable#0"
+      }
+    },
+    "25": {
+      "barcode": "naxock.ZBCmeds.Spawnable.Augmentin",
+      "title": "Augmentin",
+      "description": "Treats pain, health.",
+      "unlockable": false,
+      "redacted": false,
+      "packedAssets": [
+        {
+          "title": "PreviewMesh",
+          "guid": "8d84db2cb8a9d2d488c4b0bcf7a0633e"
+        }
+      ],
+      "mainAsset": "f072425adce053a43a63ee36f7a5a61e",
+      "tags": [
+        "ZBoneCity",
+        "Medical",
+        "Painkillers"
+      ],
+      "colliderBounds": {
+        "center": {
+          "x": -3.7252903E-09,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "extents": {
+          "x": 0.0191992279,
+          "y": 0.04320001,
+          "z": 0.0190456379
+        }
+      },
+      "isa": {
+        "type": "crate-spawnable#0"
+      }
+    },
+    "26": {
+      "barcode": "naxock.ZBCmeds.Level.ReserveEFT",
+      "title": "Reserve EFT",
+      "description": "",
+      "unlockable": false,
+      "redacted": false,
+      "packedAssets": [],
+      "mainAsset": "e8b973a1ccefeec45b0f58514a55fa12",
+      "tags": [],
+      "multiscene": false,
+      "isa": {
+        "type": "crate-level#0"
+      }
+    }
+  }
+}

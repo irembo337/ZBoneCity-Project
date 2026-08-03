@@ -1,0 +1,12 @@
+{
+  "name": "Advanced Health System",
+  "barcode": "CodexLabs.AdvancedHealthSystem",
+  "author": "CodexLabs",
+  "version": "1.0.0",
+  "marrowSdkVersion": "1.2.0",
+  "palletFile": "pallet.json",
+  "catalogFile": "catalog_CodexLabs.AdvancedHealthSystem.json",
+  "catalogHashFile": "catalog_CodexLabs.AdvancedHealthSystem.hash",
+  "windowsPayload": "platforms/windows/MelonLoader/Mods/BonelabAdvancedHealth.dll",
+  "android": "Marrow metadata only; runtime DLL requires a platform code-mod loader."
+}

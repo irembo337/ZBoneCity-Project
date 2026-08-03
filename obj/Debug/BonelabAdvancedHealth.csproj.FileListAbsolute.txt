@@ -1,0 +1,11 @@
+C:\Users\gorde\BonelabAdvancedHealth\bin\Debug\BonelabAdvancedHealth.deps.json
+C:\Users\gorde\BonelabAdvancedHealth\bin\Debug\BonelabAdvancedHealth.dll
+C:\Users\gorde\BonelabAdvancedHealth\bin\Debug\BonelabAdvancedHealth.pdb
+C:\Users\gorde\BonelabAdvancedHealth\obj\Debug\BonelabAdvancedHealth.csproj.AssemblyReference.cache
+C:\Users\gorde\BonelabAdvancedHealth\obj\Debug\BonelabAdvancedHealth.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\gorde\BonelabAdvancedHealth\obj\Debug\BonelabAdvancedHealth.csproj.CoreCompileInputs.cache
+C:\Users\gorde\BonelabAdvancedHealth\obj\Debug\BonelabAdvancedHealth.sourcelink.json
+C:\Users\gorde\BonelabAdvancedHealth\obj\Debug\BonelabAdvancedHealth.dll
+C:\Users\gorde\BonelabAdvancedHealth\obj\Debug\refint\BonelabAdvancedHealth.dll
+C:\Users\gorde\BonelabAdvancedHealth\obj\Debug\BonelabAdvancedHealth.pdb
+C:\Users\gorde\BonelabAdvancedHealth\obj\Debug\ref\BonelabAdvancedHealth.dll

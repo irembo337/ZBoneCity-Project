@@ -1,0 +1,14 @@
+{
+  "barcode": "CodexLabs.AdvancedHealthSystem.Medical.Painkillers",
+  "pallet": "CodexLabs.AdvancedHealthSystem",
+  "title": "AHS Medical Painkillers",
+  "type": "SpawnableCrate",
+  "version": "1.0.0",
+  "unityPrefab": "Assets/AdvancedHealthSystem/MedicalItems/AHS_Medical_Painkillers.prefab",
+  "legacyFallbackPrefab": "Assets/AdvancedHealthSystem/GeneratedMedicalItems/AHS_Medical_Painkillers.prefab",
+  "runtimeFallback": "Mods/ZBoneCity.dll can create a safe physical fallback with Rigidbody, Collider, InteractableHost, grip point, and Marrow grip component.",
+  "platforms": [
+    "Windows",
+    "PCVR"
+  ]
+}

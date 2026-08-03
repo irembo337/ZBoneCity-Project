@@ -1,0 +1,11 @@
+{
+  "packageKind": "HybridMarrowSdkMelonLoader",
+  "barcode": "CodexLabs.AdvancedHealthSystem",
+  "crateBarcode": "CodexLabs.AdvancedHealthSystem.RuntimePayload",
+  "palletFile": "pallet.json",
+  "catalogFile": "catalog_CodexLabs.AdvancedHealthSystem.json",
+  "catalogHashFile": "catalog_CodexLabs.AdvancedHealthSystem.hash",
+  "dllPayload": "Mods/ZBoneCity.dll",
+  "modIoUploadRoot": ".",
+  "notes": "Stock Marrow SDK content recognition is provided by pallet metadata. Runtime Harmony gameplay still requires PC MelonLoader/BoneLib."
+}

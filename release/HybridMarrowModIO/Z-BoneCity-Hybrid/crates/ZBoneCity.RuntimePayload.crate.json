@@ -1,0 +1,17 @@
+{
+  "barcode": "CodexLabs.AdvancedHealthSystem.RuntimePayload",
+  "pallet": "CodexLabs.AdvancedHealthSystem",
+  "title": "ZBoneCity Runtime Payload",
+  "type": "HybridMelonLoaderRuntime",
+  "version": "1.0.0",
+  "platforms": [
+    "Windows",
+    "PCVR"
+  ],
+  "payload": "Mods/ZBoneCity.dll",
+  "requires": [
+    "BONELAB Patch 6",
+    "MelonLoader",
+    "BoneLib"
+  ]
+}

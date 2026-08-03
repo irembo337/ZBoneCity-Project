@@ -1,0 +1,56 @@
+{
+  "version": 2,
+  "root": {
+    "ref": "1",
+    "type": "pallet#0"
+  },
+  "objects": {
+    "1": {
+      "barcode": "CodexLabs.AdvancedHealthSystem",
+      "title": "Z-BoneCity Advanced Health System",
+      "description": "Hybrid Marrow SDK compatibility wrapper for the existing PC MelonLoader DLL runtime. The pallet metadata makes the archive recognizable as a BONELAB SDK-style mod while Mods/ZBoneCity.dll keeps the Harmony/MelonLoader gameplay systems intact.",
+      "unlockable": false,
+      "redacted": false,
+      "author": "CodexLabs",
+      "version": "1.0.0",
+      "sdkVersion": "1.2.0",
+      "internal": false,
+      "crates": [
+        {
+          "ref": "2",
+          "type": "crate#0"
+        }
+      ],
+      "dataCards": [],
+      "tags": [
+        "BONELAB",
+        "MarrowSDK",
+        "MelonLoader",
+        "CodeMod",
+        "Health"
+      ],
+      "changelogs": [
+        {
+          "version": "1.0.0",
+          "title": "Hybrid SDK wrapper",
+          "text": "Added root pallet.json, crate metadata, SDK manifest files, and a clean Mods/ZBoneCity.dll payload for mod.io upload packaging."
+        }
+      ],
+      "isa": {
+        "type": "pallet#0"
+      }
+    },
+    "2": {
+      "barcode": "CodexLabs.AdvancedHealthSystem.RuntimePayload",
+      "title": "ZBoneCity Runtime Payload",
+      "description": "PC MelonLoader runtime payload included with the SDK compatibility pallet.",
+      "pallet": "CodexLabs.AdvancedHealthSystem",
+      "version": "1.0.0",
+      "platform": "windows",
+      "payload": "Mods/ZBoneCity.dll",
+      "isa": {
+        "type": "crate#0"
+      }
+    }
+  }
+}

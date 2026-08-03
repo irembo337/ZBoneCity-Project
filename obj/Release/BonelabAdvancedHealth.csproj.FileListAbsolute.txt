@@ -1,0 +1,11 @@
+C:\Users\gorde\BonelabAdvancedHealth\obj\Release\BonelabAdvancedHealth.csproj.AssemblyReference.cache
+C:\Users\gorde\BonelabAdvancedHealth\obj\Release\BonelabAdvancedHealth.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\gorde\BonelabAdvancedHealth\obj\Release\BonelabAdvancedHealth.csproj.CoreCompileInputs.cache
+C:\Users\gorde\BonelabAdvancedHealth\obj\Release\BonelabAdvancedHealth.sourcelink.json
+C:\Users\gorde\BonelabAdvancedHealth\bin\Release\ZBoneCity.deps.json
+C:\Users\gorde\BonelabAdvancedHealth\bin\Release\ZBoneCity.dll
+C:\Users\gorde\BonelabAdvancedHealth\bin\Release\ZBoneCity.pdb
+C:\Users\gorde\BonelabAdvancedHealth\obj\Release\ZBoneCity.dll
+C:\Users\gorde\BonelabAdvancedHealth\obj\Release\refint\ZBoneCity.dll
+C:\Users\gorde\BonelabAdvancedHealth\obj\Release\ZBoneCity.pdb
+C:\Users\gorde\BonelabAdvancedHealth\obj\Release\ref\ZBoneCity.dll

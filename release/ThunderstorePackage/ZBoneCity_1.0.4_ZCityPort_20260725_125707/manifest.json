@@ -1,0 +1,9 @@
+{
+  "name": "ZBoneCity",
+  "version": "1.0.4",
+  "game": "BONELAB",
+  "loader": "MelonLoader",
+  "dll": "Mods/ZBoneCity.dll",
+  "userData": "UserData/ZBoneCity",
+  "publicRelease": true
+}

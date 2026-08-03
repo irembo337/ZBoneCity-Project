@@ -1,0 +1,12 @@
+{
+  "name": "Z-BoneCity",
+  "title": "Z-BoneCity Advanced Health System",
+  "version": "1.0.0",
+  "game": "BONELAB",
+  "pallet": "CodexLabs.AdvancedHealthSystem",
+  "marrowSdkVersion": "1.2.0",
+  "hybridRuntime": true,
+  "loader": "MelonLoader",
+  "dll": "Mods/ZBoneCity.dll",
+  "crateMetadata": "crates/ZBoneCity.RuntimePayload.crate.json"
+}
