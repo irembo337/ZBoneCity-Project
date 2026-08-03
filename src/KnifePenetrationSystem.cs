@@ -138,7 +138,7 @@ namespace BonelabAdvancedHealth
 
             _manager.Bleeding.AddBleed(removalInfo, limb, spike, 1.25f + knife.Depth * 2.2f, 1.35f, spike == BleedSeverity.Arterial ? WoundSeverity.ArterialCut : WoundSeverity.DeepCut);
             _manager.AddPain(removalInfo.Pain);
-            MainMod.Runtime?.BloodFx.OnKnifeRemoved(removalInfo, spike);
+            MainMod.Runtime?.NotifyKnifeBloodRemoved(removalInfo, spike);
         }
 
         private int FindSlot(int colliderId)

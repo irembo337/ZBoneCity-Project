@@ -112,3 +112,13 @@ Settings are written to:
 ```text
 BONELAB\UserData\MelonPreferences.cfg
 ```
+
+## Z-City Attribution
+
+Parts of ZBoneCity's medical-system behavior and code are based on and adapted from the original Z-City project by sadsalat, used under the MIT-3 license.
+
+Original Z-City workshop reference:
+
+```text
+https://steamcommunity.com/workshop/filedetails/?id=3657285193
+```

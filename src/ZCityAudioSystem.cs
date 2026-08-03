@@ -1,31 +1,34 @@
 using System;
 using System.IO;
-using MelonLoader.Utils;
 using UnityEngine;
 
 namespace BonelabAdvancedHealth
 {
     public sealed class ZCityAudioSystem
     {
-        private const string AudioFolderName = "BonelabAdvancedHealth\\Audio";
         private readonly HealthManager _manager;
         private GameObject? _root;
         private AudioSource? _unconsciousSource;
         private AudioSource? _painSource;
         private AudioSource? _headHitSource;
+        private AudioSource? _deathSource;
         private AudioClip? _unconsciousClip;
         private AudioClip? _painClip;
         private AudioClip? _headHitClip;
+        private AudioClip? _deathClip;
         private string? _unconsciousPath;
         private string? _painPath;
         private string? _headHitPath;
+        private string? _deathPath;
         private float _headHitCooldown;
         private float _pendingHeadHitIntensity;
         private bool _initialized;
         private bool _hasUnconsciousTrack;
         private bool _hasPainTrack;
         private bool _hasHeadHitTrack;
+        private bool _hasDeathTrack;
         private bool _warnedAboutMp4;
+        private bool _deathSoundPlayed;
 
         public bool HasPainTrack => _hasPainTrack;
 
@@ -38,9 +41,11 @@ namespace BonelabAdvancedHealth
         {
             _headHitCooldown = 0f;
             _pendingHeadHitIntensity = 0f;
+            _deathSoundPlayed = false;
             StopAndMute(_unconsciousSource);
             StopAndMute(_painSource);
             StopAndMute(_headHitSource);
+            StopAndMute(_deathSource);
         }
 
         public void Destroy()
@@ -54,16 +59,21 @@ namespace BonelabAdvancedHealth
             _unconsciousSource = null;
             _painSource = null;
             _headHitSource = null;
+            _deathSource = null;
             _unconsciousClip = null;
             _painClip = null;
             _headHitClip = null;
+            _deathClip = null;
             _unconsciousPath = null;
             _painPath = null;
             _headHitPath = null;
+            _deathPath = null;
             _initialized = false;
             _hasUnconsciousTrack = false;
             _hasPainTrack = false;
             _hasHeadHitTrack = false;
+            _hasDeathTrack = false;
+            _deathSoundPlayed = false;
         }
 
         public void OnDamage(DamageInfo info, OrganDamageFeedback feedback)
@@ -74,8 +84,31 @@ namespace BonelabAdvancedHealth
             if (info.BodyPart != BodyPart.Head && feedback.PrimaryOrgan != OrganType.Brain)
                 return;
 
-            float intensity = Config.Clamp(0.35f + info.Damage / 95f, 0.35f, 1f);
+            float intensity = info.DamageType == AdvancedDamageType.Bullet
+                ? Config.Clamp(0.65f + info.Damage / 85f, 0.65f, 1.2f)
+                : Config.Clamp(0.35f + info.Damage / 95f, 0.35f, 1f);
             _pendingHeadHitIntensity = Math.Max(_pendingHeadHitIntensity, intensity);
+            if (PlayHeadHit(intensity, true))
+                _pendingHeadHitIntensity = 0f;
+        }
+
+        public void OnDeath(DeathCause cause)
+        {
+            if (_manager.Kind != HealthOwnerKind.Player || _deathSoundPlayed || !Config.CustomSoundsEnabled || Config.MasterVolume <= 0f || Config.DeathSoundVolume <= 0f)
+                return;
+
+            EnsureInitialized();
+            EnsureSource(ref _deathSource, ref _deathClip, _deathPath, "DeathTrack", "AHS_ZCity_Dead", false);
+            if (_deathSource == null)
+                return;
+
+            _deathSource.Stop();
+            _deathSource.volume = Config.Clamp(0.82f * Config.AudioIntensity * Config.MasterVolume * Config.DeathSoundVolume, 0f, 1f);
+            _deathSource.pitch = cause == DeathCause.CriticalHeadDamage ? 0.92f : 0.86f;
+            _deathSource.time = 0f;
+            _deathSource.Play();
+            _deathSoundPlayed = true;
+            MainMod.Runtime?.Logger.Msg("[ZBC] Death sound played");
         }
 
         public void Update(float deltaTime)
@@ -101,6 +134,13 @@ namespace BonelabAdvancedHealth
             _headHitCooldown = Math.Max(0f, _headHitCooldown - deltaTime);
             PlayPendingHeadHit();
 
+            if (!Config.CustomSoundsEnabled || !Config.RealisticAudioEnabled || Config.MasterVolume <= 0f)
+            {
+                UpdateLoop(_unconsciousSource, 0f, deltaTime, 0.65f, 0.96f);
+                UpdateLoop(_painSource, 0f, deltaTime, 0.92f, 1.03f);
+                return;
+            }
+
             float unconsciousTarget = _manager.Consciousness.State == ConsciousnessState.Unconscious
                 ? 0.68f
                 : Config.Clamp((_manager.Consciousness.BlackoutIntensity - 0.42f) * 0.75f, 0f, 0.42f);
@@ -121,16 +161,19 @@ namespace BonelabAdvancedHealth
             if (_initialized)
                 return;
 
-            string folder = GetAudioFolder();
-            _unconsciousPath = Path.Combine(folder, "zcity_unconscious.wav");
-            _painPath = Path.Combine(folder, "zcity_pain.wav");
-            _headHitPath = Path.Combine(folder, "zcity_headhit.wav");
-            _hasUnconsciousTrack = File.Exists(_unconsciousPath);
-            _hasPainTrack = File.Exists(_painPath);
-            _hasHeadHitTrack = File.Exists(_headHitPath);
+            _unconsciousPath = ExternalAudioClipLoader.ResolveAudioPath("Unconscious", "zcity_unconscious");
+            _painPath = ExternalAudioClipLoader.ResolveAudioPath("Pain", "zcity_pain");
+            _headHitPath = ExternalAudioClipLoader.ResolveAudioPath("Headshot", "zcity_headshot", "zcity_headhit");
+            _deathPath = ExternalAudioClipLoader.ResolveAudioPath("Dead", "zcity_dead");
+            _hasUnconsciousTrack = !string.IsNullOrEmpty(_unconsciousPath);
+            _hasPainTrack = !string.IsNullOrEmpty(_painPath);
+            _hasHeadHitTrack = !string.IsNullOrEmpty(_headHitPath);
+            _hasDeathTrack = !string.IsNullOrEmpty(_deathPath);
 
-            WarnAboutMp4Tracks(folder);
-            if (!_hasUnconsciousTrack && !_hasPainTrack && !_hasHeadHitTrack)
+            WarnAboutMp4Tracks();
+            PreloadTrack(_headHitPath, "AHS_ZCity_HeadHit");
+            PreloadTrack(_deathPath, "AHS_ZCity_Dead");
+            if (!_hasUnconsciousTrack && !_hasPainTrack && !_hasHeadHitTrack && !_hasDeathTrack)
             {
                 _initialized = true;
                 return;
@@ -153,9 +196,15 @@ namespace BonelabAdvancedHealth
             if (source != null || string.IsNullOrEmpty(path))
                 return;
 
-            clip = TryLoadTrack(path, clipName);
+            clip = ExternalAudioClipLoader.TryGetClip(path, clipName);
             if (clip != null)
                 source = CreateSource(sourceName, clip, loop);
+        }
+
+        private static void PreloadTrack(string? path, string clipName)
+        {
+            if (!string.IsNullOrEmpty(path))
+                ExternalAudioClipLoader.TryGetClip(path, clipName);
         }
 
         private AudioSource CreateSource(string name, AudioClip clip, bool loop)
@@ -180,21 +229,34 @@ namespace BonelabAdvancedHealth
             if (_pendingHeadHitIntensity <= 0f || _headHitCooldown > 0f)
                 return;
 
+            if (!PlayHeadHit(_pendingHeadHitIntensity, false))
+                _pendingHeadHitIntensity = 0f;
+            else
+                _pendingHeadHitIntensity = 0f;
+        }
+
+        private bool PlayHeadHit(float intensity, bool force)
+        {
+            if (!Config.CustomSoundsEnabled || Config.MasterVolume <= 0f || Config.HeadshotSoundVolume <= 0f)
+                return false;
+
+            if (!force && _headHitCooldown > 0f)
+                return true;
+
+            EnsureInitialized();
             EnsureSource(ref _headHitSource, ref _headHitClip, _headHitPath, "HeadHitTrack", "AHS_ZCity_HeadHit", false);
             if (_headHitSource == null)
-            {
-                _pendingHeadHitIntensity = 0f;
-                return;
-            }
+                return false;
 
-            float intensity = _pendingHeadHitIntensity;
-            _pendingHeadHitIntensity = 0f;
+            intensity = Config.Clamp(intensity, 0f, 1.25f);
             _headHitSource.Stop();
-            _headHitSource.volume = Mathf.Lerp(0.45f, 0.92f, intensity) * Config.AudioIntensity;
+            _headHitSource.volume = Config.Clamp(Mathf.Lerp(0.45f, 0.92f, intensity) * Config.AudioIntensity * Config.MasterVolume * Config.HeadshotSoundVolume, 0f, 1f);
             _headHitSource.pitch = Mathf.Lerp(0.92f, 0.72f, intensity);
             _headHitSource.time = 0f;
             _headHitSource.Play();
-            _headHitCooldown = Mathf.Lerp(1.25f, 3.0f, intensity);
+            _headHitCooldown = force ? 0.04f : Mathf.Lerp(1.25f, 3.0f, intensity);
+            MainMod.Runtime?.Logger.Msg("[ZBC] Headshot sound played");
+            return true;
         }
 
         private static void UpdateLoop(AudioSource? source, float targetVolume, float deltaTime, float minPitch, float maxPitch)
@@ -202,7 +264,7 @@ namespace BonelabAdvancedHealth
             if (source == null)
                 return;
 
-            source.volume = MoveToward(source.volume, targetVolume * Config.AudioIntensity, deltaTime * 0.55f);
+            source.volume = MoveToward(source.volume, targetVolume * Config.AudioIntensity * Config.MasterVolume, deltaTime * 0.55f);
             source.pitch = Mathf.Lerp(minPitch, maxPitch, Config.Clamp(targetVolume * 1.8f, 0f, 1f));
 
             if (source.volume > 0.015f)
@@ -216,30 +278,21 @@ namespace BonelabAdvancedHealth
             }
         }
 
-        private static AudioClip? TryLoadTrack(string path, string clipName)
-        {
-            if (!File.Exists(path))
-                return null;
-
-            try
-            {
-                return WavAudioLoader.Load(path, clipName);
-            }
-            catch (Exception ex)
-            {
-                MainMod.Runtime?.Logger.Warning("Failed to load WAV audio track " + Path.GetFileName(path) + ": " + ex.Message);
-                return null;
-            }
-        }
-
-        private void WarnAboutMp4Tracks(string folder)
+        private void WarnAboutMp4Tracks()
         {
             if (_warnedAboutMp4)
                 return;
 
-            bool hasMp4 = File.Exists(Path.Combine(folder, "zcity_unconscious.mp4")) ||
-                          File.Exists(Path.Combine(folder, "zcity_pain.mp4")) ||
-                          File.Exists(Path.Combine(folder, "zcity_headhit.mp4"));
+            string[] folders = ExternalAudioClipLoader.GetAudioFolders();
+            bool hasMp4 = false;
+            for (int i = 0; i < folders.Length && !hasMp4; i++)
+            {
+                string folder = folders[i];
+                hasMp4 = File.Exists(Path.Combine(folder, "zcity_unconscious.mp4")) ||
+                         File.Exists(Path.Combine(folder, "zcity_pain.mp4")) ||
+                         File.Exists(Path.Combine(folder, "zcity_headhit.mp4"));
+            }
+
             bool hasWav = _hasUnconsciousTrack || _hasPainTrack || _hasHeadHitTrack;
             if (hasMp4 && !hasWav)
             {
@@ -254,14 +307,6 @@ namespace BonelabAdvancedHealth
                 return;
             source.Stop();
             source.volume = 0f;
-        }
-
-        private static string GetAudioFolder()
-        {
-            string folder = Path.Combine(MelonEnvironment.UserDataDirectory, AudioFolderName);
-            if (!Directory.Exists(folder))
-                Directory.CreateDirectory(folder);
-            return folder;
         }
 
         private static float MoveToward(float value, float target, float maxDelta)

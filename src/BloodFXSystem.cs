@@ -14,19 +14,27 @@ namespace BonelabAdvancedHealth
             public bool Active;
         }
 
+        private struct ActorBloodState
+        {
+            public Vector3 LastPosition;
+            public float TrailTimer;
+            public float FootprintTimer;
+            public float StandingPoolTimer;
+            public bool LeftFootNext;
+            public bool HasPosition;
+        }
+
         private readonly PendingImpact[] _pendingImpacts = new PendingImpact[32];
+        private readonly Dictionary<int, ActorBloodState> _actorStates = new Dictionary<int, ActorBloodState>(64);
         private readonly NativeBloodIntegration _nativeBlood = new NativeBloodIntegration();
-        private float _playerTrailTimer;
-        private Vector3 _lastPlayerTrailPosition;
         private int _nextPendingImpact;
 
         public bool UsingNativeBlood => _nativeBlood.UsingNativeBlood;
 
         public void Reset()
         {
-            _playerTrailTimer = 0f;
-            _lastPlayerTrailPosition = Vector3.zero;
             _nextPendingImpact = 0;
+            _actorStates.Clear();
             for (int i = 0; i < _pendingImpacts.Length; i++)
                 _pendingImpacts[i].Active = false;
             _nativeBlood.Reset();
@@ -64,6 +72,7 @@ namespace BonelabAdvancedHealth
 
             float intensity = GetIntensity(info, organFeedback.BleedSeverity);
             QueueImpact(origin, GetBloodDirection(info), intensity, organFeedback.BleedSeverity == BleedSeverity.Arterial);
+            _nativeBlood.EmitWallSplat(origin, GetBloodDirection(info), intensity, organFeedback.BleedSeverity == BleedSeverity.Arterial);
         }
 
         public void OnKnifeRemoved(DamageInfo info, BleedSeverity severity)
@@ -115,21 +124,60 @@ namespace BonelabAdvancedHealth
                 _nativeBlood.EmitImpact(position + Vector3.up * 0.55f, Vector3.down, intensity * 0.65f, rate >= 36f);
 
             float interval = Mathf.Lerp(1.1f, 0.16f, Config.Clamp(intensity, 0f, 1f)) / Mathf.Max(0.15f, Config.BloodFxDensity);
+            int actorKey = isPlayer ? -1 : manager.OwnerId;
+            if (!_actorStates.TryGetValue(actorKey, out ActorBloodState state))
+            {
+                state = new ActorBloodState
+                {
+                    LastPosition = position,
+                    LeftFootNext = true,
+                    HasPosition = true
+                };
+            }
+
+            float moved = state.HasPosition ? (position - state.LastPosition).magnitude : 999f;
+            bool walking = moved > 0.055f;
+            bool stronglyBleeding = rate >= 14f;
+            state.TrailTimer += deltaTime;
+            state.FootprintTimer += deltaTime;
+            state.StandingPoolTimer += deltaTime;
+
             if (isPlayer)
             {
-                _playerTrailTimer += deltaTime;
-                float moved = _lastPlayerTrailPosition == Vector3.zero ? 999f : (position - _lastPlayerTrailPosition).magnitude;
-                if (_playerTrailTimer >= interval && moved > 0.18f)
+                if (state.TrailTimer >= interval && moved > 0.18f)
                 {
-                    _playerTrailTimer = 0f;
-                    _lastPlayerTrailPosition = position;
+                    state.TrailTimer = 0f;
+                    state.LastPosition = position;
+                    state.HasPosition = true;
                     _nativeBlood.EmitTrail(position, intensity);
                 }
+
+                if (state.FootprintTimer >= 0.36f && moved > 0.12f)
+                {
+                    state.FootprintTimer = 0f;
+                    Vector3 side = GetPlayerRightVector() * (state.LeftFootNext ? -0.09f : 0.09f);
+                    state.LeftFootNext = !state.LeftFootNext;
+                    _nativeBlood.EmitFootprint(position + side, GetPlayerForwardVector(), intensity);
+                }
             }
-            else if (Random.value < deltaTime / interval)
+            else if (walking && Random.value < deltaTime / interval)
             {
                 _nativeBlood.EmitTrail(position, intensity);
+                state.LastPosition = position;
+                state.HasPosition = true;
             }
+
+            if (!walking && stronglyBleeding && state.StandingPoolTimer >= Mathf.Lerp(3.2f, 0.65f, Config.Clamp(intensity, 0f, 1f)))
+            {
+                state.StandingPoolTimer = 0f;
+                _nativeBlood.EmitStandingPool(position, intensity * (manager.Bleeding.GetWorstBleedingSeverity(manager.Bleeding.GetWorstBleedingPart()) == BleedSeverity.Arterial ? 1.35f : 1f));
+            }
+
+            if (walking)
+                state.StandingPoolTimer = Mathf.Min(state.StandingPoolTimer, 0.35f);
+            state.LastPosition = position;
+            state.HasPosition = true;
+            _actorStates[actorKey] = state;
         }
 
         private static Vector3 GetBloodDirection(DamageInfo info)
@@ -137,6 +185,24 @@ namespace BonelabAdvancedHealth
             if (info.Direction.sqrMagnitude > 0.01f)
                 return info.Direction.normalized;
             return Vector3.down;
+        }
+
+        public void OnMedicalTreatment(HealthManager manager, MedicalItemType itemType, BodyPart part)
+        {
+            if (!Config.BloodFxEnabled)
+                return;
+
+            if (manager.Bleeding.GetWorstBleedingSeverity(part) == BleedSeverity.None && manager.Bleeding.TotalBleedRateMlPerSecond < 3f)
+                return;
+
+            Transform? head = MainMod.Runtime?.GetHeadTransform();
+            if (head == null)
+                return;
+
+            Vector3 origin = head.position + head.forward * 0.35f + Vector3.down * 0.18f;
+            float intensity = itemType == MedicalItemType.Tourniquet ? 0.9f : 0.55f;
+            _nativeBlood.EmitHandprint(origin, head.forward, intensity);
+            _nativeBlood.EmitBloodTransfer(origin + Vector3.down * 0.3f, intensity);
         }
 
         private static float GetIntensity(DamageInfo info, BleedSeverity severity)
@@ -159,6 +225,24 @@ namespace BonelabAdvancedHealth
             if (head != null)
                 return head.position + Vector3.down * 1.2f;
             return Vector3.zero;
+        }
+
+        private static Vector3 GetPlayerForwardVector()
+        {
+            Transform? head = MainMod.Runtime?.GetHeadTransform();
+            if (head == null)
+                return Vector3.forward;
+            Vector3 forward = Vector3.ProjectOnPlane(head.forward, Vector3.up);
+            return forward.sqrMagnitude > 0.01f ? forward.normalized : Vector3.forward;
+        }
+
+        private static Vector3 GetPlayerRightVector()
+        {
+            Transform? head = MainMod.Runtime?.GetHeadTransform();
+            if (head == null)
+                return Vector3.right;
+            Vector3 right = Vector3.ProjectOnPlane(head.right, Vector3.up);
+            return right.sqrMagnitude > 0.01f ? right.normalized : Vector3.right;
         }
 
         private static Vector3 GetNpcPosition(HealthManager manager)

@@ -33,6 +33,15 @@ namespace BonelabAdvancedHealth
 
     public static class HeadTraumaSystem
     {
+        private static readonly float[] DamageTypeScale =
+        {
+            1.15f,
+            1.35f,
+            1.25f,
+            0.75f,
+            0.95f
+        };
+
         public static HeadTraumaFeedback Evaluate(HealthManager manager, DamageInfo info, OrganDamageFeedback organFeedback, float currentConcussion)
         {
             if (info.BodyPart != BodyPart.Head && !organFeedback.BrainTrauma)
@@ -51,20 +60,20 @@ namespace BonelabAdvancedHealth
 
             if (info.DamageType == AdvancedDamageType.Blunt)
             {
-                float koChance = Config.Clamp(0.04f + normalized * 0.20f + currentConcussion * 0.18f, 0.02f, 0.42f);
-                if (info.Damage >= 18f && manager.Random.NextDouble() < koChance)
+                float koChance = Config.Clamp(0.02f + normalized * 0.12f + currentConcussion * 0.12f, 0.01f, 0.30f);
+                if (info.Damage >= 28f && manager.Random.NextDouble() < koChance)
                     instantKo = true;
-                else if (info.Damage >= 16f)
+                else if (info.Damage >= 22f)
                 {
                     delayed = true;
-                    delayedSeconds = Config.Clamp(0.75f + normalized * 2.2f, 0.75f, 4.2f);
+                    delayedSeconds = Config.Clamp(0.9f + normalized * 1.8f, 0.9f, 4.0f);
                 }
             }
             else if (info.DamageType == AdvancedDamageType.Bullet || info.DamageType == AdvancedDamageType.Explosion)
             {
-                instantKo = info.Damage >= 42f || organFeedback.PrimaryOrgan == OrganType.Brain && info.Damage >= 28f;
-                delayed = !instantKo && info.Damage >= 20f;
-                delayedSeconds = delayed ? Config.Clamp(0.5f + normalized * 1.4f, 0.5f, 3.0f) : 0f;
+                instantKo = info.Damage >= 54f || organFeedback.PrimaryOrgan == OrganType.Brain && info.Damage >= 30f;
+                delayed = !instantKo && info.Damage >= 24f;
+                delayedSeconds = delayed ? Config.Clamp(0.65f + normalized * 1.25f, 0.65f, 3.0f) : 0f;
             }
 
             return new HeadTraumaFeedback(concussion, dizziness, ringing, recoverySeconds, delayedSeconds, instantKo, delayed);
@@ -72,19 +81,8 @@ namespace BonelabAdvancedHealth
 
         private static float GetTypeScale(AdvancedDamageType damageType)
         {
-            switch (damageType)
-            {
-                case AdvancedDamageType.Blunt:
-                    return 1.35f;
-                case AdvancedDamageType.Explosion:
-                    return 1.25f;
-                case AdvancedDamageType.Bullet:
-                    return 1.15f;
-                case AdvancedDamageType.Fall:
-                    return 0.95f;
-                default:
-                    return 0.75f;
-            }
+            int index = (int)damageType;
+            return index >= 0 && index < DamageTypeScale.Length ? DamageTypeScale[index] : 0.75f;
         }
     }
 }

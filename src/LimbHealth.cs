@@ -8,6 +8,7 @@ namespace BonelabAdvancedHealth
         public float MaxHp { get; }
         public float Hp { get; private set; }
         public FractureState Fracture { get; private set; }
+        public int BulletHitCount { get; private set; }
         public float BleedingMultiplier { get; }
         public float PainMultiplier { get; }
         public bool IsDisabled => Hp <= MaxHp * 0.18f || Fracture == FractureState.Shattered;
@@ -33,7 +34,10 @@ namespace BonelabAdvancedHealth
                 return 0f;
 
             float previousHp = Hp;
-            Hp = Config.Clamp(Hp - info.Damage, 0f, MaxHp);
+            if (info.DamageType == AdvancedDamageType.Bullet)
+                BulletHitCount++;
+            float structuralDamage = GetStructuralDamage(info);
+            Hp = Config.Clamp(Hp - structuralDamage, 0f, MaxHp);
             EvaluateFracture(info, random);
             DamageApplied?.Invoke(this, info);
             return previousHp - Hp;
@@ -64,9 +68,19 @@ namespace BonelabAdvancedHealth
                 FractureChanged?.Invoke(this, Fracture);
         }
 
+        public void ClearFracture()
+        {
+            if (Fracture == FractureState.None)
+                return;
+
+            Fracture = FractureState.None;
+            FractureChanged?.Invoke(this, Fracture);
+        }
+
         public void Reset()
         {
             Hp = MaxHp;
+            BulletHitCount = 0;
             if (Fracture != FractureState.None)
             {
                 Fracture = FractureState.None;
@@ -76,6 +90,8 @@ namespace BonelabAdvancedHealth
 
         private void EvaluateFracture(DamageInfo info, Random random)
         {
+            if (!CanFractureFromHit(info))
+                return;
             if (info.FractureChance <= 0f || random.NextDouble() > info.FractureChance)
                 return;
 
@@ -93,15 +109,50 @@ namespace BonelabAdvancedHealth
             if (info.DamageType == AdvancedDamageType.Explosion)
                 severity *= 1.25f;
             else if (info.DamageType == AdvancedDamageType.Fall)
-                severity *= 0.72f;
+                severity *= info.IsHighEnergyImpact ? 0.88f : 0.68f;
+            else if (info.DamageType == AdvancedDamageType.Bullet && MedicalInspectionSystem.IsArm(Part))
+                severity *= info.IsHighCaliber ? 0.82f : 0.48f;
+            else if (info.DamageType == AdvancedDamageType.Bullet && MedicalInspectionSystem.IsLeg(Part))
+                severity *= info.IsHighCaliber ? 0.90f : 0.58f;
             if (Part == BodyPart.Head || Part == BodyPart.Torso)
                 severity *= 0.8f;
+            if (MedicalInspectionSystem.IsArm(Part) && info.DamageType == AdvancedDamageType.Fall)
+                severity *= 0.9f;
 
-            if (severity >= 105f)
+            if (severity >= 118f)
                 return FractureState.Shattered;
-            if (severity >= 46f)
+            if (severity >= 48f)
                 return FractureState.Fractured;
             return FractureState.Sprain;
+        }
+
+        private float GetStructuralDamage(DamageInfo info)
+        {
+            if (info.DamageType != AdvancedDamageType.Bullet)
+                return info.Damage;
+
+            if (MedicalInspectionSystem.IsArm(Part))
+                return info.Damage * (info.IsHighCaliber ? 0.58f : 0.34f);
+            if (MedicalInspectionSystem.IsLeg(Part))
+                return info.Damage * (info.IsHighCaliber ? 0.68f : 0.42f);
+
+            return info.Damage;
+        }
+
+        private bool CanFractureFromHit(DamageInfo info)
+        {
+            if (info.DamageType != AdvancedDamageType.Bullet)
+                return true;
+
+            bool arm = MedicalInspectionSystem.IsArm(Part);
+            bool leg = MedicalInspectionSystem.IsLeg(Part);
+            if (!arm && !leg)
+                return true;
+
+            if (info.IsHighCaliber)
+                return BulletHitCount >= (arm ? 7 : 6) && (info.Damage >= 26f || DamagePercent >= (arm ? 0.48f : 0.42f));
+
+            return BulletHitCount >= (arm ? 9 : 8) && (info.Damage >= (arm ? 38f : 42f) || DamagePercent >= (arm ? 0.68f : 0.60f));
         }
     }
 }

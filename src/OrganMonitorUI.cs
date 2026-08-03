@@ -6,6 +6,7 @@ namespace BonelabAdvancedHealth
 {
     public sealed class OrganMonitorUI
     {
+        private static readonly string[] OrganFailureLabels = { "OK", "DAMAGED", "CRITICAL", "FAILED" };
         private readonly StringBuilder _builder = new StringBuilder(384);
         private readonly Font _font;
         private GameObject? _root;
@@ -21,6 +22,9 @@ namespace BonelabAdvancedHealth
             _root = new GameObject("OrganMonitor");
             _root.transform.SetParent(parent, false);
             RectTransform rect = _root.AddComponent<RectTransform>();
+            rect.anchorMin = new Vector2(0.5f, 0.5f);
+            rect.anchorMax = new Vector2(0.5f, 0.5f);
+            rect.pivot = new Vector2(0.5f, 0.5f);
             rect.sizeDelta = new Vector2(365f, 310f);
             rect.anchoredPosition = new Vector2(560f, -120f);
 
@@ -31,6 +35,9 @@ namespace BonelabAdvancedHealth
             GameObject textGo = new GameObject("OrganText");
             textGo.transform.SetParent(_root.transform, false);
             RectTransform textRect = textGo.AddComponent<RectTransform>();
+            textRect.anchorMin = new Vector2(0.5f, 0.5f);
+            textRect.anchorMax = new Vector2(0.5f, 0.5f);
+            textRect.pivot = new Vector2(0.5f, 0.5f);
             textRect.sizeDelta = new Vector2(330f, 275f);
             textRect.anchoredPosition = new Vector2(0f, -4f);
             _text = textGo.AddComponent<Text>();
@@ -96,17 +103,8 @@ namespace BonelabAdvancedHealth
 
         private static string GetFailureLabel(OrganFailureState state)
         {
-            switch (state)
-            {
-                case OrganFailureState.Damaged:
-                    return "DAMAGED";
-                case OrganFailureState.Critical:
-                    return "CRITICAL";
-                case OrganFailureState.Failed:
-                    return "FAILED";
-                default:
-                    return "OK";
-            }
+            int index = (int)state;
+            return index >= 0 && index < OrganFailureLabels.Length ? OrganFailureLabels[index] : "OK";
         }
 
         private static string GetBloodPressureLabel(HealthManager manager)

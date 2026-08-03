@@ -51,21 +51,23 @@ namespace BonelabAdvancedHealth
             }
 
             _time += deltaTime;
-            float pain = Config.PainEffectsEnabled ? manager.PainNormalized : 0f;
-            float bloodLoss = 1f - manager.Bleeding.BloodNormalized;
-            float head = manager.Brain.DisorientationNormalized + manager.Brain.RingingIntensity * 0.35f;
-            float oxygen = 1f - manager.Lungs.OxygenNormalized;
-            float unconscious = manager.Consciousness.BlackoutIntensity;
-            float combined = Config.Clamp(pain * 0.62f + bloodLoss * 0.42f + head * 0.52f + oxygen * 0.36f + unconscious * 0.45f, 0f, 1.65f);
+            MedicalTelemetrySnapshot telemetry = manager.TelemetrySnapshot;
+            float pain = Config.PainEffectsEnabled ? telemetry.PainNormalized : 0f;
+            float bloodLoss = telemetry.BloodLossNormalized;
+            float head = manager.Brain.DisorientationNormalized + manager.Brain.RingingIntensity * 0.35f + manager.Neck.CameraInstability * 0.45f;
+            float oxygen = telemetry.OxygenStress;
+            float unconscious = Mathf.Max(manager.Consciousness.BlackoutIntensity, telemetry.ConsciousnessRisk);
+            float shock = Mathf.Max(manager.Shock.TunnelVision, telemetry.ShockNormalized);
+            float combined = Config.Clamp(pain * 0.54f + bloodLoss * 0.36f + head * 0.45f + oxygen * 0.32f + unconscious * 0.48f + shock * 0.34f + telemetry.VitalDanger * 0.38f + manager.Neck.TraumaNormalized * 0.22f, 0f, 1.65f);
             combined *= intensity;
 
             _smoothedPain = Mathf.MoveTowards(_smoothedPain, pain * intensity, deltaTime * 1.8f);
             _smoothedHead = Mathf.MoveTowards(_smoothedHead, head * intensity, deltaTime * 1.5f);
             _smoothedCombined = Mathf.MoveTowards(_smoothedCombined, combined, deltaTime * 1.35f);
 
-            float pulseRate = Mathf.Lerp(1.3f, 5.5f, Config.Clamp(_smoothedPain + bloodLoss, 0f, 1f));
+            float pulseRate = Mathf.Lerp(1.3f, 5.5f, Config.Clamp((telemetry.HeartbeatBpm - 60f) / 140f + _smoothedPain * 0.35f + shock * 0.25f, 0f, 1f));
             float pulse = 0.5f + 0.5f * Mathf.Sin(_time * pulseRate);
-            float shake = Config.Clamp(_smoothedPain * 0.65f + _smoothedHead * 0.8f + manager.PainSystem.ShakeIntensity * 0.35f, 0f, 1.2f);
+            float shake = Config.Clamp(_smoothedPain * 0.65f + _smoothedHead * 0.8f + shock * 0.30f + manager.PainSystem.ShakeIntensity * 0.35f + manager.Neck.CameraInstability * 0.45f, 0f, 1.2f);
             float x = (Mathf.PerlinNoise(_time * 11.7f, 0.25f) - 0.5f) * shake * 26f;
             float y = (Mathf.PerlinNoise(0.75f, _time * 13.1f) - 0.5f) * shake * 18f;
             float scale = 1f + Config.Clamp(_smoothedCombined * 0.025f + pulse * _smoothedPain * 0.012f, 0f, 0.065f);

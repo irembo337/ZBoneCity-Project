@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net6.0</TargetFramework>
-    <AssemblyName>BonelabAdvancedHealth</AssemblyName>
+    <AssemblyName>ZBoneCity</AssemblyName>
     <RootNamespace>BonelabAdvancedHealth</RootNamespace>
     <LangVersion>latest</LangVersion>
     <Nullable>enable</Nullable>
@@ -15,7 +15,20 @@
     <MelonLoaderPath>$(BonelabPath)\MelonLoader</MelonLoaderPath>
     <Il2CppPath>$(MelonLoaderPath)\Il2CppAssemblies</Il2CppPath>
     <MelonNet6Path>$(MelonLoaderPath)\net6</MelonNet6Path>
+    <InstallAfterBuild Condition="'$(InstallAfterBuild)' == ''">false</InstallAfterBuild>
+    <PackMarrow Condition="'$(PackMarrow)' == ''">false</PackMarrow>
+    <PackCleanRelease Condition="'$(PackCleanRelease)' == ''">false</PackCleanRelease>
+    <ModVersion Condition="'$(ModVersion)' == ''">1.0.4</ModVersion>
+    <TargetPlatform Condition="'$(TargetPlatform)' == ''">Windows</TargetPlatform>
+    <DefineConstants Condition="'$(TargetPlatform)' == 'Windows'">$(DefineConstants);UNITY_STANDALONE;ZBC_WINDOWS</DefineConstants>
+    <DefineConstants Condition="'$(TargetPlatform)' == 'Android'">$(DefineConstants);UNITY_ANDROID;ZBC_ANDROID</DefineConstants>
+    <DefineConstants>$(DefineConstants);MELONLOADER</DefineConstants>
   </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Remove="_magslide_decompiled_*\**\*.cs" />
+    <Compile Remove="_luamod_decompiled\**\*.cs" />
+  </ItemGroup>
 
   <ItemGroup>
     <Reference Include="MelonLoader">
@@ -78,6 +91,10 @@
       <HintPath>$(Il2CppPath)\UnityEngine.UI.dll</HintPath>
       <Private>false</Private>
     </Reference>
+    <Reference Include="Unity.TextMeshPro">
+      <HintPath>$(Il2CppPath)\Unity.TextMeshPro.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
     <Reference Include="UnityEngine.TextRenderingModule">
       <HintPath>$(Il2CppPath)\UnityEngine.TextRenderingModule.dll</HintPath>
       <Private>false</Private>
@@ -90,9 +107,33 @@
       <HintPath>$(Il2CppPath)\UnityEngine.InputLegacyModule.dll</HintPath>
       <Private>false</Private>
     </Reference>
+    <Reference Include="UnityEngine.XRModule">
+      <HintPath>$(Il2CppPath)\UnityEngine.XRModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.ImageConversionModule">
+      <HintPath>$(Il2CppPath)\UnityEngine.ImageConversionModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.UnityWebRequestModule">
+      <HintPath>$(Il2CppPath)\UnityEngine.UnityWebRequestModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.UnityWebRequestAudioModule">
+      <HintPath>$(Il2CppPath)\UnityEngine.UnityWebRequestAudioModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
   </ItemGroup>
 
-  <Target Name="CopyToBonelabMods" AfterTargets="Build" Condition="'$(Configuration)' == 'Release' and Exists('$(BonelabPath)\Mods')">
-    <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(BonelabPath)\Mods" />
+  <Target Name="CopyToBonelabMods" AfterTargets="Build" Condition="'$(Configuration)' == 'Release' and '$(InstallAfterBuild)' == 'true' and Exists('$(BonelabPath)\Mods')">
+    <Exec Command="powershell -NoProfile -ExecutionPolicy Bypass -Command &quot;$game = Get-Process BONELAB_Steam_Windows64 -ErrorAction SilentlyContinue; if ($game) { Write-Host 'BONELAB is running; skipping auto-copy of the DLL.'; exit 0 }; Copy-Item -LiteralPath '&quot;$(TargetPath)&quot;' -Destination '&quot;$(BonelabPath)\Mods\ZBoneCity.dll&quot;' -Force&quot;" />
+  </Target>
+
+  <Target Name="PackMarrowModIO" AfterTargets="Build" Condition="'$(Configuration)' == 'Release' and '$(PackMarrow)' == 'true'">
+    <Exec Command="powershell -NoProfile -ExecutionPolicy Bypass -File &quot;$(MSBuildProjectDirectory)\tools\Build-HybridMarrowPackage.ps1&quot; -Configuration &quot;$(Configuration)&quot; -Version &quot;$(ModVersion)&quot;" />
+  </Target>
+
+  <Target Name="PackCleanPlayerRelease" AfterTargets="Build" Condition="'$(Configuration)' == 'Release' and '$(PackCleanRelease)' == 'true'">
+    <Exec Command="powershell -NoProfile -ExecutionPolicy Bypass -File &quot;$(MSBuildProjectDirectory)\tools\Build-CleanPlayerRelease.ps1&quot; -Configuration &quot;$(Configuration)&quot; -Version &quot;$(ModVersion)&quot;" />
   </Target>
 </Project>

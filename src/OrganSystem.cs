@@ -188,17 +188,27 @@ namespace BonelabAdvancedHealth
             bool lung = primary == OrganType.Lungs;
             bool brain = primary == OrganType.Brain;
             bool cardiac = heart && (info.Damage >= 35f || organ.Integrity <= 35f || info.DamageType == AdvancedDamageType.Bullet || info.DamageType == AdvancedDamageType.Stab);
-            bool instantCollapse = cardiac || (brain && organ.Integrity <= 45f);
-            bool lungCollapsed = lung && (info.Damage >= 22f || organ.Integrity <= 65f);
+            if (info.IsSelfInflicted && heart && info.DamageType == AdvancedDamageType.Bullet)
+                cardiac = true;
+            bool instantCollapse = cardiac || (brain && organ.Integrity <= 45f) || (info.IsSelfInflicted && info.DamageType == AdvancedDamageType.Bullet && (brain || heart));
+            bool lungCollapsed = lung && (info.Damage >= 22f || organ.Integrity <= 65f || info.IsHighEnergyImpact && info.BodyPart == BodyPart.Torso);
             bool brainTrauma = brain && info.DamageType == AdvancedDamageType.Blunt;
 
             if (cardiac)
-                _cardiacArrestSeconds = Math.Max(_cardiacArrestSeconds, organ.Integrity <= 15f ? 2.5f : 8.0f);
+                _cardiacArrestSeconds = Math.Max(_cardiacArrestSeconds, info.IsSelfInflicted ? 2.0f : organ.Integrity <= 15f ? 2.5f : 8.0f);
 
             BleedSeverity bleedSeverity = PickBleedSeverity(info, organ, primary);
             WoundSeverity woundSeverity = PickWoundSeverity(info, primary, bleedSeverity);
             float pain = applied * organ.PainModifier * (brain ? 0.65f : 0.9f);
+            if (info.IsSelfInflicted)
+                pain *= 1.45f;
+            if (info.IsHighEnergyImpact)
+                pain *= 1.25f;
             float bleedMultiplier = organ.BleedingModifier * (heart ? 2.2f : 1f);
+            if (info.IsSelfInflicted && info.DamageType == AdvancedDamageType.Bullet)
+                bleedMultiplier *= brain || heart ? 2.2f : 1.55f;
+            if (info.IsHighEnergyImpact && info.DamageType == AdvancedDamageType.Fall)
+                bleedMultiplier *= 1.45f;
 
             return new OrganDamageFeedback(primary, pain, bleedSeverity, bleedMultiplier, woundSeverity, instantCollapse, cardiac, lungCollapsed, brainTrauma);
         }
@@ -242,6 +252,17 @@ namespace BonelabAdvancedHealth
 
             if (info.DamageType == AdvancedDamageType.Bullet || info.DamageType == AdvancedDamageType.Stab)
             {
+                if (info.IsSelfInflicted)
+                {
+                    if (roll < 0.42)
+                        return OrganType.Heart;
+                    if (roll < 0.76)
+                        return OrganType.Lungs;
+                    if (roll < 0.90)
+                        return OrganType.Liver;
+                    return OrganType.Stomach;
+                }
+
                 if (roll < 0.16)
                     return OrganType.Heart;
                 if (roll < 0.52)
@@ -263,7 +284,18 @@ namespace BonelabAdvancedHealth
             }
 
             if (info.DamageType == AdvancedDamageType.Fall)
-                return roll < 0.18 ? OrganType.Liver : OrganType.Muscles;
+            {
+                if (info.IsHighEnergyImpact && info.BodyPart == BodyPart.Torso)
+                {
+                    if (roll < 0.32)
+                        return OrganType.Lungs;
+                    if (roll < 0.56)
+                        return OrganType.Liver;
+                    if (roll < 0.70)
+                        return OrganType.Stomach;
+                }
+                return roll < (info.IsHighEnergyImpact ? 0.32 : 0.18) ? OrganType.Liver : OrganType.Muscles;
+            }
 
             return OrganType.Muscles;
         }
@@ -274,17 +306,17 @@ namespace BonelabAdvancedHealth
             switch (organ)
             {
                 case OrganType.Brain:
-                    return amount * (info.DamageType == AdvancedDamageType.Blunt ? 0.85f : 1.45f);
+                    return amount * (info.IsSelfInflicted && info.DamageType == AdvancedDamageType.Bullet ? 2.35f : info.DamageType == AdvancedDamageType.Blunt ? 0.85f : 1.45f);
                 case OrganType.Heart:
-                    return amount * 1.65f;
+                    return amount * (info.IsSelfInflicted ? 2.45f : 1.65f);
                 case OrganType.Lungs:
-                    return amount * 1.2f;
+                    return amount * (info.IsSelfInflicted ? 1.85f : info.IsHighEnergyImpact ? 1.45f : 1.2f);
                 case OrganType.Liver:
-                    return amount * 1.05f;
+                    return amount * (info.IsSelfInflicted ? 1.65f : info.IsHighEnergyImpact ? 1.40f : 1.05f);
                 case OrganType.Stomach:
-                    return amount * 0.9f;
+                    return amount * (info.IsSelfInflicted ? 1.45f : info.IsHighEnergyImpact ? 1.25f : 0.9f);
                 default:
-                    return amount * 0.42f;
+                    return amount * (info.IsHighEnergyImpact ? 0.72f : 0.42f);
             }
         }
 
@@ -297,6 +329,10 @@ namespace BonelabAdvancedHealth
                 score *= 1.4f;
             if (info.DamageType == AdvancedDamageType.Stab || info.DamageType == AdvancedDamageType.Bullet)
                 score *= 1.2f;
+            if (info.IsSelfInflicted && info.DamageType == AdvancedDamageType.Bullet)
+                score *= type == OrganType.Brain || type == OrganType.Heart ? 2.3f : 1.65f;
+            if (info.IsHighEnergyImpact && info.DamageType == AdvancedDamageType.Fall)
+                score *= 1.55f;
 
             if (score >= 85f || type == OrganType.Heart)
                 return BleedSeverity.Arterial;

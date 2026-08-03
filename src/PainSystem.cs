@@ -9,6 +9,24 @@ namespace BonelabAdvancedHealth
         private float _traumaPain;
         private float _panic;
         private float _spasmTimer;
+        private static readonly float[] BodyPartPainMultiplier =
+        {
+            1.25f,
+            1.12f,
+            1.00f,
+            1.00f,
+            1.05f,
+            1.05f
+        };
+
+        private static readonly float[] DamageTypePainMultiplier =
+        {
+            1.18f,
+            1.00f,
+            1.36f,
+            1.26f,
+            0.82f
+        };
 
         public float TotalPain { get; private set; }
         public float PainNormalized => Config.Clamp(TotalPain / 100f, 0f, 1f);
@@ -18,7 +36,7 @@ namespace BonelabAdvancedHealth
         public float BlackoutPressure { get; private set; }
         public float ShakeIntensity { get; private set; }
         public float AudioIntensity { get; private set; }
-        public bool InPainShock => BlackoutPressure > 0.72f || TotalPain >= 92f;
+        public bool InPainShock => BlackoutPressure > 0.90f || TotalPain >= 120f;
 
         public PainSystem(HealthManager manager)
         {
@@ -47,9 +65,10 @@ namespace BonelabAdvancedHealth
 
             float partMultiplier = GetBodyPartMultiplier(part);
             float typeMultiplier = GetDamageTypeMultiplier(damageType);
-            float scaled = amount * 0.62f * partMultiplier * typeMultiplier;
+            float traumaMultiplier = 1f + _manager.Trauma.InternalShock * 0.18f + _manager.Shock.Intensity * 0.12f;
+            float scaled = amount * 0.62f * partMultiplier * typeMultiplier * traumaMultiplier;
             _acutePain = Config.Clamp(_acutePain + scaled, 0f, 145f);
-            _traumaPain = Config.Clamp(_traumaPain + scaled * 0.38f, 0f, 110f);
+            _traumaPain = Config.Clamp(_traumaPain + scaled * 0.46f, 0f, 118f);
             _panic = Config.Clamp(_panic + scaled * 0.0065f, 0f, 1f);
             if (scaled >= 8f)
                 _spasmTimer = Math.Max(_spasmTimer, Config.Clamp(0.3f + scaled * 0.025f, 0.35f, 3.0f));
@@ -75,8 +94,13 @@ namespace BonelabAdvancedHealth
                 return;
             }
 
-            float acuteDecay = morphineActive ? 5.2f : adrenalineActive ? 3.4f : 1.05f;
-            float traumaDecay = morphineActive ? 1.2f : 0.22f;
+            float acuteDecay = morphineActive ? 4.6f : adrenalineActive ? 0.52f : 0.82f;
+            float traumaDecay = morphineActive ? 0.95f : adrenalineActive ? 0.08f : 0.16f;
+            if (TotalPain > 70f && !morphineActive)
+            {
+                acuteDecay *= 0.38f;
+                traumaDecay *= 0.35f;
+            }
             _acutePain = Math.Max(0f, _acutePain - deltaTime * acuteDecay);
             _traumaPain = Math.Max(0f, _traumaPain - deltaTime * traumaDecay);
             _panic = Math.Max(0f, _panic - deltaTime * (morphineActive ? 0.035f : 0.012f));
@@ -96,49 +120,30 @@ namespace BonelabAdvancedHealth
 
         private void Recalculate()
         {
-            float basePain = _acutePain + _traumaPain * 0.58f;
-            TotalPain = Config.Clamp(basePain, 0f, 135f);
+            float stimulantMask = _manager.AdrenalineNormalized > 0f ? Math.Max(1f - _manager.AdrenalineNormalized * 0.25f, 0.75f) : 1f;
+            float analgesicMask = Config.Clamp(1f - _manager.Medication.PainSuppression * 0.45f, 0.46f, 1f);
+            float basePain = (_acutePain + _traumaPain * 0.54f) * stimulantMask * analgesicMask;
+            TotalPain = Config.Clamp(basePain, 0f, 130f);
             float n = PainNormalized;
             float spasm = _spasmTimer > 0f ? Config.Clamp(_spasmTimer / 2.5f, 0f, 1f) : 0f;
-            MovementPenalty = Config.Clamp(n * 0.32f + _panic * 0.10f, 0f, 0.55f);
-            AimInstability = Config.Clamp(n * 0.55f + spasm * 0.35f + _panic * 0.18f, 0f, 1.15f);
-            BreathingStress = Config.Clamp(n * 0.42f + _panic * 0.35f, 0f, 1.05f);
-            BlackoutPressure = Config.Clamp(Math.Max(0f, n - 0.48f) * 0.78f + _panic * 0.26f, 0f, 1f);
-            ShakeIntensity = Config.Clamp(n * 0.48f + spasm * 0.42f + _panic * 0.22f, 0f, 1.2f);
+            MovementPenalty = Config.Clamp(n * 0.28f + _panic * 0.08f + _manager.Shock.MovementPenalty * 0.20f, 0f, 0.55f);
+            AimInstability = Config.Clamp(n * 0.50f + spasm * 0.32f + _panic * 0.16f + _manager.Shock.Intensity * 0.08f, 0f, 1.15f);
+            BreathingStress = Config.Clamp(n * 0.38f + _panic * 0.28f + _manager.Shock.Intensity * 0.10f, 0f, 1.05f);
+            BlackoutPressure = Config.Clamp(Math.Max(0f, n - 0.68f) * 0.52f + _panic * 0.12f + _manager.Shock.UnconsciousnessPressure * 0.18f, 0f, 1f);
+            ShakeIntensity = Config.Clamp(n * 0.42f + spasm * 0.36f + _panic * 0.18f + _manager.Shock.Intensity * 0.10f, 0f, 1.20f);
             AudioIntensity = Config.Clamp(n * 0.85f + _panic * 0.35f, 0f, 1.25f);
         }
 
         private static float GetBodyPartMultiplier(BodyPart part)
         {
-            switch (part)
-            {
-                case BodyPart.Head:
-                    return 1.25f;
-                case BodyPart.Torso:
-                    return 1.12f;
-                case BodyPart.LeftLeg:
-                case BodyPart.RightLeg:
-                    return 1.05f;
-                default:
-                    return 1.0f;
-            }
+            int index = (int)part;
+            return index >= 0 && index < BodyPartPainMultiplier.Length ? BodyPartPainMultiplier[index] : 1f;
         }
 
         private static float GetDamageTypeMultiplier(AdvancedDamageType damageType)
         {
-            switch (damageType)
-            {
-                case AdvancedDamageType.Bullet:
-                    return 1.18f;
-                case AdvancedDamageType.Stab:
-                    return 1.26f;
-                case AdvancedDamageType.Explosion:
-                    return 1.36f;
-                case AdvancedDamageType.Fall:
-                    return 0.82f;
-                default:
-                    return 1.0f;
-            }
+            int index = (int)damageType;
+            return index >= 0 && index < DamageTypePainMultiplier.Length ? DamageTypePainMultiplier[index] : 1f;
         }
     }
 }

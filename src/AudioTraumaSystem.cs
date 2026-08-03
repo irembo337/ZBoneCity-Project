@@ -8,17 +8,29 @@ namespace BonelabAdvancedHealth
         private readonly HealthManager _manager;
         private readonly AudioClip[] _painClips;
         private readonly ZCityAudioSystem _zCityAudio;
+        private readonly ZCityAudioBank _zCityBank;
         private GameObject? _rig;
         private AudioSource? _painSource;
         private AudioSource? _ringSource;
         private AudioSource? _noiseSource;
-        private AudioSource? _lowPulseSource;
+        private AudioSource? _breathSource;
+        private AudioSource? _coughSource;
         private AudioLowPassFilter? _listenerLowPass;
         private AudioClip? _ringClip;
         private AudioClip? _noiseClip;
-        private AudioClip? _lowPulseClip;
+        private AudioClip? _breathClip;
+        private AudioClip? _zCityBreathingClip;
+        private AudioClip? _coughClip;
+        private AudioClip? _fractureClip;
+        private AudioClip? _neckCrackClip;
+        private string? _neckCrackPath;
         private float _pendingPainIntensity;
+        private float _pendingFractureIntensity;
+        private float _pendingNeckCrackIntensity;
+        private float _pendingMedicalIntensity;
         private float _painCooldown;
+        private float _coughCooldown;
+        private float _medicalCooldown;
         private float _impactShock;
 
         public float MuffleIntensity { get; private set; }
@@ -28,18 +40,26 @@ namespace BonelabAdvancedHealth
         {
             _manager = manager;
             _zCityAudio = new ZCityAudioSystem(manager);
+            _zCityBank = new ZCityAudioBank();
             _painClips = new AudioClip[5];
             for (int i = 0; i < _painClips.Length; i++)
                 _painClips[i] = CreatePainClip(i);
-            _ringClip = CreateToneClip("AHS_EarRing", 4400f, 3.0f, 0.18f);
+            _ringClip = CreateSoftRingingClip();
             _noiseClip = CreateNoiseClip("AHS_WhiteNoise", 2.0f, 0.12f);
-            _lowPulseClip = CreateLowPulseClip();
+            _breathClip = CreateBreathingClip();
+            _coughClip = CreateCoughClip();
+            _fractureClip = CreateFractureClip();
         }
 
         public void Reset()
         {
             _pendingPainIntensity = 0f;
+            _pendingFractureIntensity = 0f;
+            _pendingNeckCrackIntensity = 0f;
+            _pendingMedicalIntensity = 0f;
             _painCooldown = 0f;
+            _coughCooldown = 0f;
+            _medicalCooldown = 0f;
             _impactShock = 0f;
             MuffleIntensity = 0f;
             RingingIntensity = 0f;
@@ -49,8 +69,10 @@ namespace BonelabAdvancedHealth
                 _ringSource.volume = 0f;
             if (_noiseSource != null)
                 _noiseSource.volume = 0f;
-            if (_lowPulseSource != null)
-                _lowPulseSource.volume = 0f;
+            if (_breathSource != null)
+                _breathSource.volume = 0f;
+            if (_coughSource != null)
+                _coughSource.Stop();
             _zCityAudio.Reset();
         }
 
@@ -81,6 +103,47 @@ namespace BonelabAdvancedHealth
                 _impactShock = Config.Clamp(_impactShock + 0.45f + intensity * 0.4f, 0f, 1f);
         }
 
+        public void TriggerPainVoice(float intensity)
+        {
+            if (!Config.RealisticAudioEnabled)
+                return;
+
+            _pendingPainIntensity = Math.Max(_pendingPainIntensity, Config.Clamp(intensity, 0f, 1.25f));
+        }
+
+        public void TriggerFractureSound(float intensity)
+        {
+            if (!Config.RealisticAudioEnabled)
+                return;
+
+            _pendingFractureIntensity = Math.Max(_pendingFractureIntensity, Config.Clamp(intensity, 0f, 1.3f));
+        }
+
+        public void TriggerNeckCrack(float intensity)
+        {
+            if (!Config.RealisticAudioEnabled)
+                return;
+
+            _pendingNeckCrackIntensity = Math.Max(_pendingNeckCrackIntensity, Config.Clamp(intensity, 0f, 1.3f));
+        }
+
+        public void TriggerMedicalUse(MedicalItemType type)
+        {
+            if (!Config.RealisticAudioEnabled)
+                return;
+
+            float intensity = type == MedicalItemType.Medkit || type == MedicalItemType.BloodPack ? 0.9f : 0.65f;
+            if (type == MedicalItemType.Morphine || type == MedicalItemType.Adrenaline || type == MedicalItemType.ETGStimulator || type == MedicalItemType.SJ1Stimulator)
+                intensity = 0.72f;
+            _pendingMedicalIntensity = Math.Max(_pendingMedicalIntensity, intensity);
+        }
+
+        public void OnDeath(DeathCause cause)
+        {
+            if (!Config.RealisticAudioEnabled)
+                return;
+        }
+
         public void Update(float deltaTime)
         {
             if (!Config.RealisticAudioEnabled)
@@ -92,20 +155,65 @@ namespace BonelabAdvancedHealth
             _zCityAudio.Update(deltaTime);
 
             _painCooldown = Math.Max(0f, _painCooldown - deltaTime);
+            _coughCooldown = Math.Max(0f, _coughCooldown - deltaTime);
+            _medicalCooldown = Math.Max(0f, _medicalCooldown - deltaTime);
             _impactShock = Math.Max(0f, _impactShock - deltaTime * 0.18f);
 
             float oxygenNoise = _manager.Lungs.WhiteNoiseIntensity;
-            RingingIntensity = Config.Clamp(_manager.Brain.RingingIntensity + _impactShock * 0.75f + _manager.Consciousness.BlackoutIntensity * 0.25f, 0f, 1f);
-            MuffleIntensity = Config.Clamp(_manager.Consciousness.BlackoutIntensity * 0.75f + _manager.AwarenessPenalty + _manager.Brain.DisorientationNormalized * 0.4f, 0f, 1f);
+            RingingIntensity = Config.Clamp(_manager.Brain.RingingIntensity + _impactShock * 0.75f, 0f, 1f);
+            MuffleIntensity = Config.Clamp(_manager.Consciousness.BlackoutIntensity * 0.75f + _manager.AwarenessPenalty + _manager.Brain.DisorientationNormalized * 0.4f + _manager.Medication.RespiratoryDepression * 0.22f, 0f, 1f);
             float audioIntensity = Config.AudioIntensity;
 
             if (_pendingPainIntensity > 0.05f && _painCooldown <= 0f)
                 PlayPain(_pendingPainIntensity);
             _pendingPainIntensity = Math.Max(0f, _pendingPainIntensity - deltaTime * 0.8f);
 
+            if (_pendingFractureIntensity > 0.05f && _coughSource != null)
+            {
+                float volume = Config.Clamp(0.26f + _pendingFractureIntensity * 0.38f, 0f, 0.9f) * Config.AudioIntensity * Config.MasterVolume;
+                float pitch = 0.72f + _pendingFractureIntensity * 0.18f;
+                if (!_zCityBank.PlayRandomOneShot("Fracture", _coughSource, volume, pitch, "ZBC_ZCity_Fracture"))
+                {
+                    _coughSource.pitch = pitch;
+                    _coughSource.volume = volume;
+                    _coughSource.PlayOneShot(_fractureClip, _coughSource.volume);
+                }
+
+                _pendingFractureIntensity = 0f;
+            }
+
+            if (_pendingNeckCrackIntensity > 0.05f && _coughSource != null)
+            {
+                if (_neckCrackClip == null)
+                {
+                    _neckCrackPath ??= ExternalAudioClipLoader.ResolveAudioPath("bonerack", "neck_crack", "NeckCrack");
+                    _neckCrackClip = ExternalAudioClipLoader.TryGetClip(_neckCrackPath, "ZBC_NeckCrack");
+                }
+
+                float volume = Config.Clamp(0.22f + _pendingNeckCrackIntensity * 0.34f, 0f, 0.82f) * Config.AudioIntensity * Config.MasterVolume;
+                float pitch = Config.Clamp(0.82f - _pendingNeckCrackIntensity * 0.10f, 0.62f, 1.05f);
+                if (!_zCityBank.PlayRandomOneShot("Fracture", _coughSource, volume, pitch, "ZBC_ZCity_NeckFracture"))
+                {
+                    AudioClip? clip = _neckCrackClip ?? _fractureClip;
+                    _coughSource.pitch = pitch;
+                    _coughSource.PlayOneShot(clip, volume);
+                }
+
+                _pendingNeckCrackIntensity = 0f;
+            }
+
+            if (_pendingMedicalIntensity > 0.05f && _medicalCooldown <= 0f && _coughSource != null)
+            {
+                float volume = Config.Clamp(0.20f + _pendingMedicalIntensity * 0.28f, 0f, 0.72f) * Config.AudioIntensity * Config.MasterVolume;
+                float pitch = Config.Clamp(0.92f + _pendingMedicalIntensity * 0.08f, 0.86f, 1.08f);
+                if (_zCityBank.PlayRandomOneShot("Medical", _coughSource, volume, pitch, "ZBC_ZCity_Medical"))
+                    _medicalCooldown = 0.42f;
+                _pendingMedicalIntensity = 0f;
+            }
+
             if (_ringSource != null)
             {
-                _ringSource.volume = MoveToward(_ringSource.volume, RingingIntensity * 0.22f * audioIntensity, deltaTime * 0.9f);
+                _ringSource.volume = MoveToward(_ringSource.volume, RingingIntensity * 0.12f * audioIntensity, deltaTime * 0.9f);
                 _ringSource.pitch = 0.85f + RingingIntensity * 0.35f;
                 EnsureLoop(_ringSource);
             }
@@ -117,12 +225,28 @@ namespace BonelabAdvancedHealth
                 EnsureLoop(_noiseSource);
             }
 
-            if (_lowPulseSource != null)
+            if (_breathSource != null)
             {
-                float heartDanger = 1f - _manager.Organs.HeartbeatStrength;
-                _lowPulseSource.volume = MoveToward(_lowPulseSource.volume, heartDanger * 0.26f * audioIntensity, deltaTime * 0.8f);
-                _lowPulseSource.pitch = 0.75f + _manager.Organs.HeartbeatStrength * 0.45f;
-                EnsureLoop(_lowPulseSource);
+                if (_zCityBreathingClip == null)
+                    _zCityBreathingClip = _zCityBank.GetLongestClip("Breathing", "ZBC_ZCity_Breathing");
+                if (_zCityBreathingClip != null && _breathSource.clip != _zCityBreathingClip)
+                    _breathSource.clip = _zCityBreathingClip;
+
+                float heavyBreathing = Config.Clamp(_manager.Stress.BreathingIntensity + _manager.Lungs.BreathingPanic * 0.45f + _manager.Shock.Intensity * 0.14f + _manager.Neck.BreathingStress * 0.45f + _manager.Medication.BreathingAudioStress * 0.42f + _manager.Rehabilitation.StaminaPenalty * 0.22f, 0f, 1.2f);
+                _breathSource.volume = MoveToward(_breathSource.volume, heavyBreathing * 0.30f * audioIntensity, deltaTime * 0.75f);
+                _breathSource.pitch = Config.Clamp(0.78f + heavyBreathing * 0.38f - _manager.Medication.RespiratoryDepression * 0.18f, 0.52f, 1.34f);
+                EnsureLoop(_breathSource);
+            }
+
+            if (_coughSource != null && _coughCooldown <= 0f)
+            {
+                float coughRisk = Config.Clamp(_manager.Lungs.OxygenStress + _manager.InternalBleedingNormalized * 0.55f + (_manager.Bleeding.TotalBleedRateMlPerSecond / 80f) + _manager.Medication.RespiratoryDepression * 0.16f, 0f, 1f);
+                if (coughRisk > 0.55f)
+                {
+                    _coughSource.pitch = 0.82f + coughRisk * 0.16f;
+                    _coughSource.PlayOneShot(_coughClip, coughRisk * 0.38f * audioIntensity);
+                    _coughCooldown = Mathf.Lerp(8f, 2.8f, coughRisk);
+                }
             }
 
             UpdateListenerMuffle(deltaTime);
@@ -136,14 +260,16 @@ namespace BonelabAdvancedHealth
                 _painSource = _rig.AddComponent<AudioSource>();
                 _ringSource = _rig.AddComponent<AudioSource>();
                 _noiseSource = _rig.AddComponent<AudioSource>();
-                _lowPulseSource = _rig.AddComponent<AudioSource>();
+                _breathSource = _rig.AddComponent<AudioSource>();
+                _coughSource = _rig.AddComponent<AudioSource>();
                 ConfigureSource(_painSource, _manager.Kind == HealthOwnerKind.Player, false);
                 ConfigureSource(_ringSource, _manager.Kind == HealthOwnerKind.Player, true);
                 ConfigureSource(_noiseSource, _manager.Kind == HealthOwnerKind.Player, true);
-                ConfigureSource(_lowPulseSource, _manager.Kind == HealthOwnerKind.Player, true);
+                ConfigureSource(_breathSource, _manager.Kind == HealthOwnerKind.Player, true);
+                ConfigureSource(_coughSource, _manager.Kind == HealthOwnerKind.Player, false);
                 _ringSource.clip = _ringClip;
                 _noiseSource.clip = _noiseClip;
-                _lowPulseSource.clip = _lowPulseClip;
+                _breathSource.clip = _breathClip;
             }
 
             if (_rig.transform.parent != anchor)
@@ -177,7 +303,8 @@ namespace BonelabAdvancedHealth
             _painSource.clip = _painClips[index];
             _painSource.volume = Config.Clamp((0.12f + intensity * 0.55f) * Config.AudioIntensity, 0f, 0.95f);
             _painSource.pitch = Config.Clamp(0.82f + (float)_manager.Random.NextDouble() * 0.26f - intensity * 0.1f, 0.62f, 1.2f);
-            _painSource.Play();
+            if (!_zCityBank.PlayRandomOneShot("Pain", _painSource, _painSource.volume * Config.MasterVolume, _painSource.pitch, "ZBC_ZCity_Pain"))
+                _painSource.Play();
             _painCooldown = Config.Clamp(1.8f - intensity * 0.7f, 0.55f, 1.8f);
         }
 
@@ -241,18 +368,25 @@ namespace BonelabAdvancedHealth
             return clip;
         }
 
-        private static AudioClip CreateToneClip(string name, float frequency, float seconds, float amplitude)
+        private static AudioClip CreateSoftRingingClip()
         {
             const int sampleRate = 22050;
-            int samples = (int)(sampleRate * seconds);
+            int samples = sampleRate * 3;
             float[] data = new float[samples];
+            uint seed = 0x9e3779b9u;
+            float previous = 0f;
             for (int i = 0; i < samples; i++)
             {
                 float t = i / (float)sampleRate;
-                data[i] = Mathf.Sin(t * frequency * Mathf.PI * 2f) * amplitude;
+                seed ^= (uint)(i * 1103515245);
+                seed *= 16777619u;
+                float noise = (((seed >> 9) & 0xff) / 127.5f - 1f) * 0.035f;
+                float softFlutter = Mathf.Sin(t * 790f * Mathf.PI * 2f) * 0.012f;
+                previous = previous * 0.92f + (noise + softFlutter) * 0.08f;
+                data[i] = previous;
             }
 
-            AudioClip clip = AudioClip.Create(name, samples, 1, sampleRate, false);
+            AudioClip clip = AudioClip.Create("ZBC_SoftTinnitus", samples, 1, sampleRate, false);
             clip.SetData(data, 0);
             return clip;
         }
@@ -276,20 +410,65 @@ namespace BonelabAdvancedHealth
             return clip;
         }
 
-        private static AudioClip CreateLowPulseClip()
+        private static AudioClip CreateBreathingClip()
         {
             const int sampleRate = 22050;
-            int samples = sampleRate * 2;
+            int samples = sampleRate * 3;
             float[] data = new float[samples];
+            uint seed = 2166136261u;
             for (int i = 0; i < samples; i++)
             {
                 float t = i / (float)sampleRate;
-                float pulse = Mathf.Sin(t * Mathf.PI * 2f);
-                float envelope = Mathf.Pow(Mathf.Max(0f, pulse), 12f);
-                data[i] = Mathf.Sin(t * 62f * Mathf.PI * 2f) * envelope * 0.32f;
+                float breath = Mathf.Pow(Mathf.Max(0f, Mathf.Sin(t * Mathf.PI * 2f / 1.55f)), 1.8f);
+                seed ^= (uint)i;
+                seed *= 16777619u;
+                float noise = (((seed >> 8) & 0xff) / 127.5f - 1f) * 0.035f;
+                data[i] = (Mathf.Sin(t * 92f * Mathf.PI * 2f) * 0.06f + noise) * breath;
             }
 
-            AudioClip clip = AudioClip.Create("AHS_LowPulse", samples, 1, sampleRate, false);
+            AudioClip clip = AudioClip.Create("ZBC_HeavyBreathing", samples, 1, sampleRate, false);
+            clip.SetData(data, 0);
+            return clip;
+        }
+
+        private static AudioClip CreateCoughClip()
+        {
+            const int sampleRate = 22050;
+            int samples = (int)(sampleRate * 0.58f);
+            float[] data = new float[samples];
+            uint seed = 0x811c9dc5u;
+            for (int i = 0; i < samples; i++)
+            {
+                float x = i / (float)samples;
+                float envelope = Mathf.Sin(x * Mathf.PI);
+                seed ^= (uint)(i * 16777619);
+                seed *= 16777619u;
+                float noise = (((seed >> 8) & 0xff) / 127.5f - 1f);
+                data[i] = noise * envelope * (0.22f + Mathf.Sin(x * Mathf.PI * 8f) * 0.08f);
+            }
+
+            AudioClip clip = AudioClip.Create("ZBC_BloodCough", samples, 1, sampleRate, false);
+            clip.SetData(data, 0);
+            return clip;
+        }
+
+        private static AudioClip CreateFractureClip()
+        {
+            const int sampleRate = 22050;
+            int samples = (int)(sampleRate * 0.22f);
+            float[] data = new float[samples];
+            uint seed = 1469598103u;
+            for (int i = 0; i < samples; i++)
+            {
+                float x = i / (float)samples;
+                float envelope = Mathf.Pow(1f - x, 2.4f);
+                seed ^= (uint)(i + 0x9e3779b9u);
+                seed *= 16777619u;
+                float crack = (((seed >> 9) & 0xff) / 127.5f - 1f) * envelope;
+                data[i] = crack * 0.38f + Mathf.Sin(i * 0.47f) * envelope * 0.08f;
+            }
+
+            AudioClip clip = AudioClip.Create("ZBC_FractureCrack", samples, 1, sampleRate, false);
             clip.SetData(data, 0);
             return clip;
         }

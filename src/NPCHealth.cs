@@ -60,6 +60,15 @@ namespace BonelabAdvancedHealth
             return transform != null ? transform.position : Vector3.zero;
         }
 
+        public bool CanReceiveNeckSnap()
+        {
+            if (_enemyHealth == null || IsDead || !_enemyHealth.alive)
+                return false;
+
+            return Consciousness.State == ConsciousnessState.Awake ||
+                   Consciousness.State == ConsciousnessState.Blackout;
+        }
+
         public void ApplyNpcRuntimeEffects(float deltaTime)
         {
             if (_enemyHealth == null || IsDead)
@@ -73,6 +82,20 @@ namespace BonelabAdvancedHealth
                 _limpReactionTimer = choking ? 1.2f : 2.4f;
                 TryStaggerNpc();
             }
+        }
+
+        public void TryExecuteIfCritical(DamageInfo info)
+        {
+            if (_enemyHealth == null || IsDead || !_enemyHealth.alive)
+                return;
+            if (Consciousness.State != ConsciousnessState.Unconscious && TotalTraumaNormalized < 0.78f && Bleeding.BloodNormalized > 0.34f)
+                return;
+            if (info.DamageType != AdvancedDamageType.Stab && info.DamageType != AdvancedDamageType.Blunt && info.DamageType != AdvancedDamageType.Bullet)
+                return;
+            if (!IsCloseRangeExecution(info) && info.Damage < 42f)
+                return;
+
+            CommitDeath(DeathCause.Trauma);
         }
 
         protected override void KillInGame(DeathCause cause)
@@ -113,6 +136,15 @@ namespace BonelabAdvancedHealth
             {
                 MainMod.Runtime?.Logger.Warning("NPC unconsciousness reaction failed: " + ex.Message);
             }
+        }
+
+        private bool IsCloseRangeExecution(DamageInfo info)
+        {
+            Transform? target = GetEffectTransform();
+            if (target == null || info.Origin == Vector3.zero)
+                return false;
+
+            return Vector3.Distance(info.Origin, target.position) <= 1.35f;
         }
     }
 }

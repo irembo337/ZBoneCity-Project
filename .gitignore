@@ -5,3 +5,19 @@ obj/
 *.suo
 *.csproj.user
 *.log
+
+# Local/generated work artifacts
+release/
+_incoming/
+_video_frames/
+_current_video_frames/
+_axonbody3_obs_extract/
+_axonbody3_obs_source/
+_luamod_decompiled/
+_magslide_decompiled/
+_magslide_decompiled_2/
+
+# Archives/build packages should be produced from source, not committed.
+*.zip
+*.7z
+*.rar
